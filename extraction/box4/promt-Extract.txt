@@ -1,0 +1,140 @@
+Je veux générer un script bookmarklet JavaScript strict (100% en français, commentaires inclus).
+Contrainte stricte : Le code doit commencer impérativement par javascript:(async function(){ (sans aucun texte avant).
+Objectif : Script "plat" (sans callback hell) utilisant async/await et localStorage (clé livebox_config) pour persister un DTO { wifi: {}, dhcp: {} } lors de la navigation. Placer la logique dans un bloc try...catch avec des console.log.
+
+Fonctions utilitaires requises :
+
+attendre(ms) : retourne une Promise avec setTimeout.
+
+simulerClic(selecteur) : via dispatchEvent(new MouseEvent...).
+
+lireTexte(selecteur), lireValeurInput(selecteur).
+
+lireEtat(selecteur) : retourne un booléen (gère inputs directs et panels radio/checkbox).
+
+extraireEquipements(selecteurTableau) : boucle sur les tr (ignore l'en-tête), retourne array [{nom_equipement, adresse_mac}].
+
+Voici les actions précises à effectuer en séquence :
+
+### ÉTAPE 1 : Page d'accueil
+1. Copier le SSID et enregistrer dans l'objet JSON : `#gwtActivityPanel > div > div > div.homeRight > div:nth-child(1) > div.home-block.content.small > div:nth-child(1) > div:nth-child(2)`
+2. Copier le mdp et enregistrer dans le JSON : `#gwtActivityPanel > div > div > div.homeRight > div:nth-child(1) > div.home-block.content.small > div:nth-child(2) > div:nth-child(2)`
+3. Copier l'adresse ip internet dans le JSON : #gwtActivityPanel > div > div > div.homeRight > div:nth-child(4) > div:nth-child(2) > div:nth-child(2) > div:nth-child(2)
+4. Cliquer sur le lien pour changer de page : `#homepage_wifi_configuration_hyperlink`
+
+### ÉTAPE 2 : Page configuration wifi (Utiliser setTimeout de 1000ms après le clic)
+1. Enregistrer l'état (true/false) "différencier le WiFi 5 GHz du 2.4 GHz" : `#network_wifi_activation_difference_radioPanel`
+2. Cliquer pour ouvrir le menu : `#network_wifi_wifi2\.4_foldable_imageButton`
+
+### ÉTAPE 3 : Sous-menu 2.4 GHz (Utiliser un autre setTimeout de 1000ms)
+1. Enregistrer l'état "diffusion SSID" : `#network_wifi_wifi2\.4_technicalSettings_broadCastSsid_radioPanel`
+2. Enregistrer l'état "afficher la clé sur écran Livebox" : `#network_wifi_wifi2\.4_securitySettings_wifiKeyDisplayed_radioPanel`
+3. Enregistrer l'état "filtrage d'adresses MAC" : `#network_wifi_wifi2\.4_authorizedEquipement_macFiltering_radioPanel`
+4. Extraire les équipements autorisés depuis ce tableau : `#network_wifi_wifi2\.4_authorizedEquipementSection_mainBlock > div:nth-child(6) > div > table`. 
+   -> Règle : Boucler sur les lignes (`tr`), ignorer la 1ère ligne (en-tête). Enregistrer en couple le contenu de la colonne 1 (index 0) "nom_equipement" avec celui de la colonne 3 (index 2) "adresse_mac" dans un tableau (Array) JSON.
+
+### 3 bis : wifi 5
+-- dans le cas "différencier le WiFi 5 GHz du 2.4 GHz" est false, enregistrer dans json état "activé : false", puis cliquer sur #network_wifi_activation_difference_enable_radioButton
+0. cliquer #network_wifi_wifi5_foldable_imageButton
+1. Enregistrer "SSID 5" : #network_wifi_wifi5_technicalSettings_ssid_textbox
+2. Enregistrer l'état "mode" : #network_wifi_wifi5_technicalSettings_mode
+3. Enregistrer l'état "diffusion SSID 5" : #network_wifi_wifi5_technicalSettings_broadCastSsid_radioPanel
+4. Enregistrer "mdp5" : #network_wifi_wifi5_securitySettings_WPAKeyClear_textbox
+3. Enregistrer l'état "filtrage d'adresses MAC" : #network_wifi_wifi5_authorizedEquipement_macFiltering_radioPanel
+4. Extraire les équipements autorisés depuis ce tableau : #network_wifi_wifi5_authorizedEquipementSection_mainBlock > div:nth-child(6) > div > table
+   -> Règle : Boucler sur les lignes (`tr`), ignorer la 1ère ligne (en-tête). Enregistrer en couple le contenu de la colonne 1 (index 0) "nom_equipement" avec celui de la colonne 3 (index 2) "adresse_mac" dans un tableau (Array) JSON.
+
+
+### ETAPE 4 : DHCP & DNS
+1. Cliquer #menu_menuNetwork_dhcpdns_hyperlink
+2. Enregistrer l'état "état du serveur DHCP" : #network_dhcp_configuration_serverState_radioPanel
+3. Copier "adresse IP du LAN" : #network_dhcp_configuration_ipLanAddress_textbox
+4. Copier "masque de sous-réseau du LAN" : #network_dhcp_configuration_subnetMask_textbox
+5. Copier "adresse IP de début" : #network_dhcp_configuration_ipAddress_start_textbox
+6. Copier "adresse IP de fin" : #network_dhcp_configuration_ipAddress_end_textbox
+7. Enregistrer l'état "mode DNS" : #network_dhcp_configuration_modeDNS_combobox
+
+### ETAPE 5 : NAT/PAT
+1. Cliquer #menu_menuNetwork_natpat_hyperlink
+2. Extraire les informations depuis ce tableau : #network_natPat_IPv4Section_mainBlock > div:nth-child(4) > table
+   -> avec ordre Activer, Application/Service, Port interne, Port externe, Protocole, Équipement, IP externe
+
+## ETAPE 6 : DynDNS
+1. Cliquer #menu_menuNetwork_natpat_hyperlink
+1. Enregistrer l'état "état du client DynDNS" : #network_dyndns_mainBlock > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(1)
+2. Enregistrer l'état "nom DNS" : #network_dyndns_mainBlock > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(2)
+3. Copier "nom de hôte complet" : #network_dyndns_mainBlock > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(3)
+4. Extraire les informations depuis ce tableau : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div.GIB5JY0BJP-fr-orange-livebox-client-ui-css-CommonsCss-pageSectionBorder.GIB5JY0BFP-fr-orange-livebox-client-ui-css-CommonsCss-padding20.GIB5JY0BCO-fr-orange-livebox-client-ui-css-CommonsCss-last > div:nth-child(4) > table
+   -> avec ordre Service, Nom d'hôte/de domaine, Mot de passe, Mise à jour
+
+## ETAPE 7 : DMZ
+1. Extraire les informations depuis ce tableau "DMZ" : #network_dmz_addressTable_panel > table
+   -> avec ordre Équipement, Adresse IP statique
+
+## ETAPE 8 : ROUTAGE
+1. Cliquer #menu_menuNetwork_routing_hyperlink
+2. Extraire les informations depuis ce tableau : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div > div:nth-child(4) > table
+   -> avec ordre Réseau de destination, Masque du sous-réseau de destination, Passerelle, Interface, Métrique, Activer
+
+## ETAPE 9 : pare-feu
+1. Cliquer #menu_menuNetwork_firewall_hyperlink
+2. Enregistrer l'état "niveau de protection" : #network_firewall_protectionSection_mainBlock > div:nth-child(2)
+3. Enregistrer l'état "répondre au ping" #network_firewall_ping_answerPing_radioPanel
+
+##ETAPE 10 : VPN site à site
+1. Cliquer #menu_menuNetwork_vpn_hyperlink
+2. Cliquer #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BMWB-fr-orange-livebox-client-ui-css-VpnCss-vpnListPanel > div.GIB5JY0BJWB-fr-orange-livebox-client-ui-css-VpnCss-panel.GIB5JY0BLWB-fr-orange-livebox-client-ui-css-VpnCss-table > div > table > tbody > tr:nth-child(2) > td:nth-child(4) > div
+3. Enregistrer l'état "état VNP" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(1) > div.GIB5JY0BFM-fr-orange-livebox-client-ui-css-CommonsCss-formItemInput > span:nth-child(1)
+4. Copier "nom VNP" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(2)
+5. Copier "adresse IP du site distant" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(3)
+6. Copier "équipement distant" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(4)
+7. Copier "clé partagée" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(5)
+8. Copier "réseau local" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(7) > div:nth-child(3) > div
+   -> #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(7) > div:nth-child(3) > div > div > div:nth-child(2) > input
+   -> #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(7) > div:nth-child(3) > div > div > div:nth-child(3) > input
+9. Copier "réseau dsitant" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(10) > div:nth-child(3) > div
+   -> #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(10) > div:nth-child(3) > div > div > div:nth-child(2) > input
+   -> #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div:nth-child(1) > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(10) > div:nth-child(3) > div > div > div:nth-child(3) > input
+10. Enregistrer l'état "mode de configuration du tunel" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div.GIB5JY0BJP-fr-orange-livebox-client-ui-css-CommonsCss-pageSectionBorder.GIB5JY0BFP-fr-orange-livebox-client-ui-css-CommonsCss-padding20.GIB5JY0BCO-fr-orange-livebox-client-ui-css-CommonsCss-last > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div > div.GIB5JY0BFM-fr-orange-livebox-client-ui-css-CommonsCss-formItemInput
+
+
+##ETAPE 11 : VPN nomade
+1. Cliquer : #menu_menuNetwork_vpn_hyperlink
+2. Cliquer : rable > tbody > tr:nth-child(2) > td:nth-child(4) > div > div > img
+3. Enregistrer l'état "état de l'utilisateur" sous forme "activé/désactivé" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(1) > div.GIB5JY0BFM-fr-orange-livebox-client-ui-css-CommonsCss-formItemInput
+4. Copier "nom de l'utilisateur" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(2) > input
+5. Copier "mot de passe de l'utilisateur" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(3) > input
+6. Copier "logiciel VPN nomade" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(7) > div.GIB5JY0BFM-fr-orange-livebox-client-ui-css-CommonsCss-formItemInput.bold_font > input
+7. Copier "type VPN" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(8) > div.gwt-Label.GIB5JY0BFM-fr-orange-livebox-client-ui-css-CommonsCss-formItemInput.bold_font
+8. Copier "clé partagée nomade" : #gwtActivityPanel > div > div > form > div > div:nth-child(1) > div > div > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div:nth-child(9) > div.GIB5JY0BFM-fr-orange-livebox-client-ui-css-CommonsCss-formItemInput > input.gwt-PasswordTextBox
+
+
+## ETAPE 12 : Air Box 
+1. Cliquer #menu_myServices_hyperlink
+2. Cliquer #menu_myServices_securitybox_hyperlink
+3. Enregistrer l'état "activé" : #myServices_securityBox_serviceActivation_mainBlock > div.GIB5JY0BKM-fr-orange-livebox-client-ui-css-CommonsCss-formLayout > div > div:nth-child(3) > div
+4. Cliquer #myServices_securityBox_serviceActivation_enable_radioButton
+5. Copier "mot de passe administrateur" : #myServices_securitybox_airbox_configuration_settings_password_textbox
+6. Copier "code pin" #myServices_securitybox_airbox_configuration_settings_pin_textbox
+7. Copier "identifiant de carte SIM" : #myServices_securitybox_advancedSettings_simCard_textbox
+8. Copier "mode réseau" #myServices_securitybox_advancedSettings_networkMode_combobox
+9. Copier "réduction d'interférences" #myServices_securitybox_advancedSettings_reducer_combobox
+10. Copier "activer l'accès de secours après" #myServices_securitybox_advancedSettings_enable_timeAfter_combobox
+11. Copier "désactiver l'accès de secours après" #myServices_securitybox_advancedSettings_disable_timeAfter_combobox
+12. Enregistrer l'état "reprise des paramètres WiFi" #myServices_securitybox_advancedSettings_wifi_restore_radioPanel > div.GIB5JY0BFM-fr-orange-livebox-client-ui-css-CommonsCss-formItemInput
+13. Copier "nom de l'APN" #myServices_securitybox_advancedSettings_apn_name_textbox
+14. Copier "identifiant APN" #myServices_securitybox_advancedSettings_apn_username_textbox
+15. Copier "mot de passe APN" #myServices_securitybox_advancedSettings_apn_password_passwordTextbox
+
+
+## Accès à distance
+1. Cliquer #menu_myAccount_hyperlink
+2. Cliquer #menu_myAccount_distantaccess_hyperlink
+3. Copier "identifiant" #myAccount_remoteAccess_userSettingsSection_login
+4. Copier "mot de passe" #myAccount_remoteAccess_userSettingsSection_password_passwordTextbox
+5. Enregistrer l'état "activé" #myAccount_remoteAccess_settingsConfiguration_radioPanel > div.GIB5JY0BFM-fr-orange-livebox-client-ui-css-CommonsCss-formItemInput
+6. Copier "port" #myAccount_remoteAccess_settingsConfiguration_port_textbox
+
+
+### ÉTAPE FINAL : Téléchargement
+1. À la toute fin, convertir l'objet JSON final et forcer le téléchargement silencieux (sans pop-up) d'un fichier nommé "livebox_migration_config.json" en utilisant un `Blob` et un lien `<a>` invisible.

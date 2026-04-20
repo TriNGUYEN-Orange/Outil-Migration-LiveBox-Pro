@@ -1,0 +1,141 @@
+### ÉTAPE 1 : Wifi
+1. Cliquer #sah_footer > div > div.iconbar-button.icon.icon-network.entered
+2. Cliquer #wifiAdvanced
+Dans le conteneur #wifi_accesspoint_form, il faut récupérer 3 éléments dont un de chaque est accèssible par son lien, quand on ouvert ce lien, on a des infos sur le wifi.
+Pour les 2 premiers liens, ce sont des wifi 2.4 et 5 donc ils ont le même structure de page, même instruction pour push des données.
+Dans le 3e lien, c'est le wifi invité donc pas la même structure.
+3. Pour les 2e premiers liens, voici les étapes à faire
+    3.1 regarder l'état activé de button #wifi_accesspoint24 ou #wifi_accesspointboth (dans le cas pas differencier le 2.4 et le 5), si c'est "ON", ne fait rien, si c'est "OFF", cliquer sur le button pour allumer
+    3.2 cliquer #wifi_accesspoint24_link ou #wifi_accesspointboth pour aller dans la page de configuration de wifi 2.4
+    3.2 regarder dans json "wifi" -> "ssid", puis push l'info dans #wifi_private_ssid
+    3.3 regarder dans json "wifi" -> "mot_de_passe", puis #wifi_private_securitykey
+    3.4 regarder dans json "wifi" -> "wifi2_4" -> "diffusion_ssid" si c'est true/false, puis, vérifier #wifi_private_broadcastssid_id_1 checkbox s'il est checked ou pas pour mettre le même choix
+    3.5 regarder dans json "wifi" -> "differencier_reseaux" true/false, puis faire #wifi_private_different_ssid (select) toujours mettre 0 oui
+    3.6 regarder dans json "wifi" -> "wifi2_4" -> "afficher_cle_ecran" true/false, puis #wifi_private_oledSecurityKey_1 (checkbox)
+    3.7 cliquer sur lien #advanced_parameters_link
+    3.8 regarder dans json "wifi" -> "wifi2_4" -> "mode", puis #wifi_private_mode24 (select) b/g/n/bg/gn/bgn/ax , ne pas laisser minuscule ou majuscule concernent le résultat
+    3.9 regarder dans json "wifi" -> "wifi2_4" -> "filtrage_mac" false désactivé / true activé, puis #wifi_private_macfiltering_enable (select) 1 activé / 0 désactivé
+    3.10 cliquer #save 
+    3.11 cliquer #popup_confirm_submit
+    3.12 cliquer #wifi_accesspoint5_link_txt
+    3.13 regarder dans json "wifi" -> "wifi5" -> "ssid", puis #wifi_private_ssid (text)
+    3.14 regarder dans json "wifi" -> "wifi5" -> "diffusion_ssid", puis #wifi_private_broadcastssid_id_1 (checkbox)
+    3.15 regarder dans json "wifi" -> "wifi5" -> "mdp", puis #wifi_private_securitykey (text)
+    3.16 mettre toujours Oui pour #wifi_private_oledSecurityKey_1 (checkbox)
+    3.17 regarder dans json "wifi" -> "differencier_reseaux" true/false, puis faire #wifi_private_different_ssid (select) 0 oui, 1 non
+    3.18 regarder dans json "wifi" -> "wifi5" -> "filtrage_mac" false désactivé / true activé, puis #wifi_private_macfiltering_enable (select) 1 activé / 0 désactivé
+    3.19 cliquer #save
+    3.20 cliquer #popup_confirm_submit
+
+    #wifiAdvanced_Fav > div 7
+    #wifiAdvanced > div 6
+    #wifiAdvanced 
+
+
+### Pare-feu
+- appeler la fonction retournerAccueil
+- cliquer #sah_footer > div > div.iconbar-button.icon.icon-advanced.entered
+- cliquer #networkFirewall
+- lire état selectioné actuel dans les sous div de #security pour comparer avec json "parefeu" -> "niveau de protection" puis selectionner le même
+- dans le cas changer, cliquer #submit pour enregistrer
+"mot_de_passe"
+
+
+### Acces distance
+- appeler la fonction retournerAccueil
+- cliquer #sah_footer > div > div.iconbar-button.icon.icon-advanced.entered
+- cliquer widget #internetRemote 
+- regarder dans json "accès à distance" -> "état" "désactivé"/"activé", puis #admin_true 
+- regarder dans json "accès à distance" -> "identifiant", puis #login (text)
+- regarder dans json "accès à distance" -> "mot de passe", puis #remote_password (password)
+- regarder dans json "accès à distance" -> "port", puis #port (text) 
+    -- si "accès à distance" -> "port" acctuel < 10000, alors mettre nouveau = actuel + 10000
+
+
+### DHCP
+- cliquer #sah_footer > div > div.iconbar-button.icon.icon-advanced.entered
+- cliquer #networkAdvanced
+- attendre body > div.loading_screen, jusqu'au moment display: none 
+- regarder dans json "dhcp_dns" -> "état du serveur DHCP" true/false, puis #dhcpServ_true (checkbox)
+- regarder dans json "dhcp_dns" -> "adresse IP du LAN", puis #dhcpIP (text)
+- regarder dans json "dhcp_dns" -> "masque de sous-réseau du LAN", puis #dhcpMask (text)
+- regarder dans json "dhcp_dns" -> "adresse IP de début", puis #ipBegin (text)
+- regarder dans json "dhcp_dns" - > "adresse IP de fin", puis #ipEnd (text)
+- regarder dans json "dhcp_dns" -> "mode DNS" AUTOMATIQUE/MANUEL, puis #dnsMode (select) automatique/manuel
+    --  ne pas laisser minuscule ou majuscule concernent le résultat
+- cliquer #submit
+
+### Routage
+- cliquer #sah_footer > div > div.iconbar-button.icon.icon-advanced.entered
+- cliquer #networkAdvanced
+- attendre body > div.loading_screen, jusqu'au moment display: none 
+- cliquer #tab_information_routing
+- cliquer #addRule
+- regarder dans json "routage" -> "table de routage" -> "Réseau de destination", puis #destinationIP (text)
+- regarder dans json "routage" -> "table de routage" -> "Masque du sous-réseau de destination", puis #subnetDestinationIP (text)
+- regarder dans json "routage" -> "table de routage" -> "Passerelle", #gateway (text)
+- regarder dans json "routage" -> "table de routage" -> "Métrique" -> #metric (number)
+- regarder dans json "routage" -> "table de routage" -> "Activé" -> #routingAcitvate_true (checkbox) 
+- Cliquer #popup_addRule_submit
+    -- attention ! dans "table de routage" peut contenir plusieurs routes, alors fait une boucle entre étape #addRule et #popup_addRule_submit
+
+
+### Airbox 
+- cliquer #sah_footer > div > div.iconbar-button.icon.icon-support.entered
+- cliquer #airbox
+- regarder l'état actuel #airbox_activation_status Activé/Désactivé, l'enregistrer pour utiliser après
+- cliquer #airbox_activation_status_activated
+- regarder dans json "airbox" -> "mot de passe administrateur", puis #password_value (text)
+- regarder dans json "airbox" -> "code pin", puis #pincode_value (text)
+- cliquer #advanced_settings_link > span
+- regarder dans json "airbox" -> "mode réseau", puis #networkMode (select) 3G, 4G, Auto 2G/3G/4G, attention majuscule/minuscule, si pas marché, met Auto 2G/3G/4G
+- regarder dans json "airbox" -> "réduction d'interférences", puis #interferences (select) Aucune, 3G, 4G, 3G/4G, si pas marché, mettre Aucune
+- regarder dans json "airbox" -> "activer l'accès de secours après", puis #rescue_activation (select) 1min 30, 5min, 10min, si pas marché, mettre 1min 30
+- regarder dans json "airbox" -> "désactiver l'accès de secours après", puis #rescue_deactivation (select) 3min, 5min, 10min, si pas marché, met 5min
+- regarder dans json "airbox" -> "reprise des paramètres WiFi" activé/désactivé, puis #wifi_settings_retrieve (button) 
+- regarder dans json "airbox" -> "nom de l'APN", puis #apn_name_value (text)
+- regarder dans json "airbox" -> "identifiant APN", puis #apn_id_value (text)
+- regarder dans json "airbox" -> "mot de passe APN", puis #apn_password_value (password)
+- cliquer #save
+- regarder l'état de Airbox au début, si c'est Activé, laisse, si c'est désactivé cliquer #airbox_activation_status_deactivated
+- cliquer #save
+
+### VPN 
+faire une boucle avec cettes étapes suivantes, sur le nombre d'éléments dans "vpn" -> "nomade" -> "comptes", i = 0, i < =3, i++
+- cliquer #sah_footer > div > div.iconbar-button.icon.icon-advanced.entered
+- cliquer #internetVPNAnkaa 
+- attendre body > div.loading_screen, jusqu'au moment display: none 
+- cliquer #content_template_container > div:nth-child(4) > div > a
+- attendre #user_popup s'affiche
+- regarder dans json "vpn" -> "nomade" -> "comptes" -> "nom de l'utilisateur", puis #user_name (text)
+- regarder dans json "vpn" -> "nomade" -> "comptes" -> "mot de passe de l'utilisateur", puis #password (password) et #password_confirm (password)
+- cliquer #changepwd_save
+- regarder dans json "vpn" -> "nomade" -> "comptes" -> "état de l'utilisateur" activé/désactivé, puis cliquer sur le cas de 1ere colonne correspondant dans la table de users
+
+- cliquer #content_template_container > div:nth-child(13) > div > a
+- regarder dans json "vpn" -> "nomade" -> "comptes" -> "clé partagée nomade", puis #content_template_container > div.ipsec_groupe > div.row.text-field-row > div.col-xs-5.text-field-input > input (text)
+- regarder dans json "vpn" -> "nomade" -> "parametres avancés" -> "IKE (phase 1)" -> "authentification", puis cliquer #content_template_container > div:nth-child(22) > div (list)
+- cliquer #chooseEncryption_save
+- regarder dans json "vpn" -> "nomade" -> "parametres avancés" -> "IKE (phase 1)" -> "groupe Diffie Hellman", puis cliquer #content_template_container > div:nth-child(23) > div (list) (list)
+- cliquer #chooseEncryption_save
+- regarder dans json "vpn" -> "nomade" -> "parametres avancés" -> "IKE (phase 1)" -> "durée de session (en sec)", puis #content_template_container > div:nth-child(24) > div.col-xs-5.text-field-input
+- 
+
+- regarder dans json "vpn" -> "nomade" -> "parametres avancés" -> "IKE (phase 2)" -> "authentification", puis #content_template_container > div:nth-child(27) > div > a
+- regarder dans json "vpn" -> "nomade" -> "parametres avancés" -> "IKE (phase 2)" -> "groupe PFS", puis #content_template_container > div:nth-child(28) > div > a > span
+- regarder dans json "vpn" -> "nomade" -> "parametres avancés" -> "IKE (phase 2)" -> "durée de session (en sec)", puis #content_template_container > div:nth-child(29) > div.col-xs-5.text-field-input > input ()
+- cliquer #content_template_container > div.button-container > div.button-content > input:nth-child(2)
+
+### VPN Site a Site
+- cliquer #sah_footer > div > div.iconbar-button.icon.icon-advanced.entered
+- cliquer #internetVPNAnkaa 
+- cliquer #tab_vpnSite2site
+- cliquer #content_template_container > div:nth-child(4) > div > a
+"vpn site à site" est une liste de VPN, faire une boucle à partir d'ici
+- regarder dans json "vpn" -> "vpn site à site" -> "nom VPN", puis #site_name (text)
+- regarder dans json "vpn" -> "vpn site à site" -> "adresse IP du site distant", puis #ip (text)
+- regarder dans json "vpn" -> "vpn site à site" -> "réseau distant" -> "ip", puis #distant_ip (text), mais il faut ajouter /24 à la fin, sans espace
+- regarder dans json "vpn" -> "vpn site à site" -> "clé partagée", puis #site_popup > div.sah_dialog_body > div.ipsec_groupe_site.input-wrapper.middle > div.row.text-field-row > div.col-xs-5.text-field-input > input 
+- regarder dans json "vpn" -> "vpn site à site" -> "équipement distant", puis #distantEquipSelect > div > select, si dans json a le caractère "3" ou "4", choisir le "LiveBoxPro v3/v4", si ça contien 5, 6, 7 choisir "Livebox 5 et supérieur", sinon choisir "Autre"
+- cliquer #site_save
+- regarder dans json "vpn" -> "vpn site à site" -> "activé" true/false, puis, si c'est true faire rien. si c'est false cliquer #content_template_container > div:nth-child(5) > table > tbody > tr:nth-child(1) > td:nth-child(1) > div > div > div
