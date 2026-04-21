@@ -1,28 +1,6 @@
 /* --- /box4/extract_main.js --- */
 
-window.OVERLAY_CSS = `
-#livebox-migration-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.40); z-index: 9999999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Segoe UI', Arial, sans-serif; color: #fff; backdrop-filter: blur(3px); }
-.lm-box { background: #fff; color: #333; padding: 40px; border-radius: 12px; width: 450px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-.lm-box h2 { color: #ff7900; margin-top: 0; font-size: 24px; font-weight: bold; }
-.lm-progress-bg { background: #f0f0f0; height: 22px; border-radius: 15px; margin: 25px 0; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); }
-.lm-progress-bar { background: linear-gradient(90deg, #ff7900, #ff9e40); height: 100%; width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-.lm-step-text { font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #555; }
-.lm-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #ff7900; border-radius: 50%; width: 50px; height: 50px; animation: lm-spin 1s linear infinite; margin: 0 auto 20px auto; }
-@keyframes lm-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-`;
-
-window.OVERLAY_HTML = `
-<div class="lm-box">
-    <div class="lm-spinner" id="lm-spinner"></div>
-    <h2 id="lm-titre">Extraction en cours...</h2>
-    <div class="lm-step-text" id="lm-step-text">Initialisation du système...</div>
-    <div class="lm-progress-bg"><div class="lm-progress-bar" id="lm-progress-bar"></div></div>
-    <p id="lm-warning" style="color:#d9534f; font-weight:bold; font-size:14px; margin-top: 15px;">⚠️ Ne touchez pas à la page, patientez !</p>
-</div>
-`;
-
 window.executerExtractionBox4 = async function() {
-    const AFFICHER_UI = true;
     const MAX_TENTATIVES_RATTRAPAGE = 2; 
 
     if (window.CLE_STORAGE) {
@@ -36,117 +14,17 @@ window.executerExtractionBox4 = async function() {
         "dmz": {}, "routage": {}, "parefeu": {}, "vpn": {}
     };
 
-    function injecterOverlay() {
-        if (!AFFICHER_UI) return;
-        if(document.getElementById("livebox-migration-overlay")) return;
-        
-        const style = document.createElement('style');
-        style.innerHTML = window.OVERLAY_CSS;
-        document.head.appendChild(style);
-
-        const overlay = document.createElement('div');
-        overlay.id = "livebox-migration-overlay";
-        overlay.innerHTML = window.OVERLAY_HTML;
-        document.body.appendChild(overlay);
-    }
-
-    function majOverlay(etape, total, nomModule) {
-        if (!AFFICHER_UI) return;
-        const pct = Math.round((etape / total) * 100);
-        const barre = document.getElementById("lm-progress-bar");
-        const bgBarre = document.querySelector(".lm-progress-bg");
-        const texte = document.getElementById("lm-step-text");
-        
-        if(bgBarre) bgBarre.style.display = "block";
-        if(barre) barre.style.width = pct + "%";
-        if(texte) texte.innerHTML = "Étape " + etape + "/" + total + " : <br><span style='color:#ff7900'>" + nomModule + "</span>";
-    }
-
-    function majOverlayTentative(nomModule, tentativeActuelle, maxTentatives) {
-        if (!AFFICHER_UI) return;
-        const bgBarre = document.querySelector(".lm-progress-bg");
-        const texte = document.getElementById("lm-step-text");
-        
-        if(bgBarre) bgBarre.style.display = "none";
-        if(texte) {
-            texte.innerHTML = "<span style='color:#f39c12; font-size:15px;'>⏳ Tentative de rattrapage (" + tentativeActuelle + "/" + maxTentatives + ")...</span><br><span style='color:#ff7900; font-size:18px; display:inline-block; margin-top:5px;'>" + nomModule + "</span>";
-        }
-    }
-    
-    function succesOverlay(erreursDefinitives = []) {
-        if (!AFFICHER_UI) return;
-        const spinner = document.getElementById("lm-spinner");
-        const titre = document.getElementById("lm-titre");
-        const warning = document.getElementById("lm-warning");
-        const bgBarre = document.querySelector(".lm-progress-bg");
-        const texte = document.getElementById("lm-step-text");
-        const box = document.querySelector(".lm-box");
-
-        if(spinner) spinner.style.display = "none";
-        if(warning) warning.style.display = "none";
-        if(bgBarre) bgBarre.style.display = "none";
-        if(texte) texte.style.display = "none";
-        
-        if(box) {
-            if (erreursDefinitives.length === 0) {
-                if(titre) { titre.innerHTML = "✅ Extraction Terminée !"; titre.style.color = "#4caf50"; }
-            } else {
-                if(titre) { titre.innerHTML = "⚠️ Extraction Terminée (Partielle)"; titre.style.color = "#f39c12"; }
-                
-                let listeErreursHtml = "<div style='text-align: left; background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 14px; border: 1px solid #ffeeba;'>";
-                listeErreursHtml += "<b>Informations introuvables (ou vides) :</b><ul style='margin: 10px 0 0 0; padding-left: 20px;'>";
-                erreursDefinitives.forEach(err => {
-                    listeErreursHtml += `<li>${err}</li>`;
-                });
-                listeErreursHtml += "</ul></div>";
-                
-                let containerErreurs = document.createElement("div");
-                containerErreurs.innerHTML = listeErreursHtml;
-                box.appendChild(containerErreurs);
-            }
-
-            let btn = document.createElement("button");
-            btn.innerHTML = "Fermer";
-            btn.style.cssText = "margin-top:15px; padding:12px 25px; background:#4caf50; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size: 16px; transition: 0.3s; width: 100%; box-sizing: border-box;";
-            btn.onclick = function() { document.getElementById("livebox-migration-overlay").remove(); };
-            box.appendChild(btn);
-        }
-    }
-
-    function erreurOverlay(msg) {
-        if (!AFFICHER_UI) { alert("❌ Erreur : " + msg); return; }
-        const spinner = document.getElementById("lm-spinner");
-        const titre = document.getElementById("lm-titre");
-        const warning = document.getElementById("lm-warning");
-        const box = document.querySelector(".lm-box");
-
-        if(spinner) spinner.style.display = "none";
-        if(titre) { titre.innerHTML = "❌ Erreur Critique"; titre.style.color = "#d9534f"; }
-        if(warning) { warning.innerHTML = msg; warning.style.color = "#333"; warning.style.wordWrap = "break-word"; }
-        
-        if(box) {
-            box.style.border = "4px solid #d9534f";
-            let btn = document.createElement("button");
-            btn.innerHTML = "Fermer et Annuler";
-            btn.style.cssText = "margin-top:20px; padding:12px 25px; background:#d9534f; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size: 16px;";
-            btn.onclick = function() { document.getElementById("livebox-migration-overlay").remove(); };
-            box.appendChild(btn);
-        }
-    }
-
     try {
-        injecterOverlay();
+        window.ExtractUI.injecter();
         const TOTAL_ETAPES = 12; 
-        
         let modulesEnEchec = [];
 
         /* ====================================================================================== */
         /* PHASE 1 : EXÉCUTION NORMALE EN SÉQUENCE  */
         /* ====================================================================================== */
         async function executerModuleNormal(etape, nomModule, fonctionExecution, fonctionValidation) {
-            majOverlay(etape, TOTAL_ETAPES, nomModule);
+            window.ExtractUI.majNormal(etape, TOTAL_ETAPES, nomModule);
             try {
-                /* 🌟 CẬP NHẬT: Truyền false (không phải tentative) */
                 if (typeof fonctionExecution === "function") await fonctionExecution(false);
 
                 let estValide = true;
@@ -228,16 +106,14 @@ window.executerExtractionBox4 = async function() {
                 let succesRattrapage = false;
 
                 for (let tentative = 1; tentative <= MAX_TENTATIVES_RATTRAPAGE; tentative++) {
-                    majOverlayTentative(mod.nomModule, tentative, MAX_TENTATIVES_RATTRAPAGE);
+                    window.ExtractUI.majTentative(mod.nomModule, tentative, MAX_TENTATIVES_RATTRAPAGE);
 
                     if (typeof window.simulerClic === "function" && typeof window.attendrePause === "function") {
-                        console.log(`👉 Retour à l'accueil avant de réessayer [${mod.nomModule}]...`);
-                        window.simulerClic("#menu_home_hyperlink");
+                        window.simulerClic("#menu_home_hyperlink"); 
                         await window.attendrePause(1500);
                     }
 
                     try {
-                        /* 🌟 CẬP NHẬT: Truyền true báo hiệu đang ở chế độ tentative */
                         await mod.fonctionExecution(true);
                         let estValide = mod.fonctionValidation();
                         
@@ -253,25 +129,22 @@ window.executerExtractionBox4 = async function() {
                     }
                 }
 
-                if (!succesRattrapage) {
-                    echecsDefinitifs.push(mod.nomModule);
-                }
+                if (!succesRattrapage) echecsDefinitifs.push(mod.nomModule);
             }
         }
 
         /* ====================================================================================== */
         /* PHASE 3 : TÉLÉCHARGEMENT ET AFFICHAGE DES RÉSULTATS          */
         /* ====================================================================================== */
-        
         console.log("💾 Génération du fichier JSON...");
         if (typeof window.extraireFin === "function") await window.extraireFin();
 
         console.log("🎉 Affichage du popup final...");
-        succesOverlay(echecsDefinitifs);
+        window.ExtractUI.succes(echecsDefinitifs);
 
     } catch (erreur) {
         console.error("❌ Une erreur est survenue durant l'exécution :", erreur);
-        erreurOverlay(erreur.message);
+        window.ExtractUI.erreur(erreur.message);
     }
 };
 
@@ -310,7 +183,6 @@ window.executerExtractionBox4 = async function() {
 
     let urlActuelle = window.location.hostname;
     if (!urlActuelle.includes("192.168.") && !urlActuelle.includes("livebox")) {
-        console.warn("⚠️ Exécution hors de la Livebox bloquée.");
         afficherAlerte(
             "Action Requise",
             "Ce script doit être exécuté <b>uniquement</b> sur la page d'administration de votre Livebox.",
@@ -327,7 +199,6 @@ window.executerExtractionBox4 = async function() {
     }
 
     if (isLoggedOut) {
-        console.warn("⚠️ Utilisateur non connecté détecté. Le script est bloqué en attente de connexion.");
         afficherAlerte(
             "Connexion Requise",
             "Vous êtes bien sur l'interface de la Livebox, mais <b>vous n'êtes pas connecté</b>.",
@@ -349,8 +220,10 @@ window.executerExtractionBox4 = async function() {
     }
     if (!baseUrl) baseUrl = "http://127.0.0.1:5500/extraction/box4";
 
+    /* 🌟 NOUVEAU: Ajout de extract_ui.js dans la liste des modules */
     const modules = [
         "extract_utils.js",
+        "extract_ui.js",
         "extract_accueil.js",
         "extract_wifi.js",
         "extract_dhcp_dns.js",
@@ -365,8 +238,6 @@ window.executerExtractionBox4 = async function() {
         "extract_airbox.js",
         "extract_fin.js"
     ];
-
-    console.log("⏳ Chargement des modules depuis : " + baseUrl);
 
     for (let mod of modules) {
         await new Promise((resolve) => {

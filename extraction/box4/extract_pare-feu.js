@@ -25,7 +25,6 @@ window.extraireParefeu = async function(estRattrapage = false) {
     let selecteurRadiosPareFeu = "#network_firewall_protectionSection_mainBlock input[type='radio']";
     await attendreElement(selecteurRadiosPareFeu, 30000);
 
-    /* Khởi tạo object parefeu để tránh lỗi undefined */
     configLivebox.parefeu = configLivebox.parefeu || {};
 
     /* 3. Extraire le niveau de protection (Gestion spécifique pour les boutons radio) */

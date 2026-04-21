@@ -284,7 +284,6 @@ window.executerVpnNomade = async function() {
                         inputCle.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'a' }));
                         inputCle.dispatchEvent(new Event('change', { bubbles: true }));
                         inputCle.blur();
-                        /* 🔥 TÔI ĐÃ XÓA LỆNH document.body.click() GÂY LỖI ĐÓNG PANEL Ở ĐÂY 🔥 */
                         await window.attendrePause(500);
                         modifs = true;
                     }
@@ -343,7 +342,6 @@ window.executerVpnNomade = async function() {
                             let options = Array.from(select.options);
                             let valMappee = mapValeurBox6(valeurVoulue, typeParam);
                             
-                            /* Tìm option theo từ điển trước, nếu không có thì tìm theo chữ cái */
                             let optTrouvee = valMappee ? options.find(o => o.value === valMappee) : null;
 
                             if (!optTrouvee) {

@@ -137,7 +137,6 @@ window.extraireVpnNomade = async function(estRattrapage = false) {
                         
                         if (lienAvances) {
                             lienAvances.click();
-                            /* ⚡ TỐI ƯU: Chờ Select hiện ra thay vì pause 3 giây */
                             await attendreElement("#gwtActivityPanel form div[class*='formLayout'] select", 6000); 
                             
                             /* On récupère les 3 grands blocs de la page (Réseau, Phase 1, Phase 2) */

@@ -29,7 +29,7 @@ window.extraireDyndns = async function(estRattrapage = false) {
     await attendreElement(blocFormulaire, 15000);
     
     /* ========================================================================= */
-    /* 🌟 NOUVEAU : Attente SPÉCIFIQUE pour le menu déroulant "nom DNS"          */
+    /*Attente SPÉCIFIQUE pour le menu déroulant "nom DNS"          */
     /* ========================================================================= */
     console.log("⏳ Attente du chargement de la liste des noms DNS...");
     
