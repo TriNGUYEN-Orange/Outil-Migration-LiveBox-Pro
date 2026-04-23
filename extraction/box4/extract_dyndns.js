@@ -9,7 +9,6 @@ window.extraireDyndns = async function(estRattrapage = false) {
         attendreStabiliteDOM, 
         lireEtat, 
         lireValeurInput, 
-        extraireTableau, 
         CLE_STORAGE 
     } = window;
 
@@ -29,21 +28,16 @@ window.extraireDyndns = async function(estRattrapage = false) {
     await attendreElement(blocFormulaire, 15000);
     
     /* ========================================================================= */
-    /*Attente SPÉCIFIQUE pour le menu déroulant "nom DNS"          */
+    /* Attente SPÉCIFIQUE pour le menu déroulant "nom DNS"                       */
     /* ========================================================================= */
     console.log("⏳ Attente du chargement de la liste des noms DNS...");
     
-    /* On cible le select grâce à son title repéré dans votre capture d'écran */
     let selecteurSelectDNS = "select[title*='nom de host spécifique']";
-    
-    /* On attend d'abord que le select lui-même apparaisse physiquement */
     await attendreElement(selecteurSelectDNS, 10000);
     
-    /* Ensuite, on attend intelligemment qu'il se remplisse avec des options (depuis le serveur) */
     let selectDNS = document.querySelector(selecteurSelectDNS);
     if (selectDNS) {
         let tentatives = 0;
-        /* Tant qu'il n'y a que "choisir..." (1 option) ou 0 option, on patiente (max 8 secondes) */
         while (selectDNS.options.length <= 1 && tentatives < 16) {
             await attendrePause(500);
             tentatives++;
@@ -51,7 +45,6 @@ window.extraireDyndns = async function(estRattrapage = false) {
         console.log("✅ Liste DNS chargée avec " + selectDNS.options.length + " option(s).");
     }
 
-    /* On s'assure que le reste du DOM est bien stable avant de lire */
     await attendreStabiliteDOM(blocFormulaire, 15000, 1000);
 
     /* ========================================================================= */
@@ -61,10 +54,8 @@ window.extraireDyndns = async function(estRattrapage = false) {
 
     configLivebox.dyndns["activé"] = lireEtat(blocFormulaire + " > div:nth-child(1)");
     
-    /* Lecture sécurisée en utilisant le selecteur ciblé */
     configLivebox.dyndns["nom DNS"] = lireValeurInput(selecteurSelectDNS);
     
-    /* Si la méthode ciblée échoue (ex: màj Livebox), on essaie l'ancienne méthode de secours */
     if (!configLivebox.dyndns["nom DNS"] || configLivebox.dyndns["nom DNS"] === "Introuvable") {
          configLivebox.dyndns["nom DNS"] = lireValeurInput(blocFormulaire + " > div:nth-child(2) select");
     }
@@ -72,20 +63,50 @@ window.extraireDyndns = async function(estRattrapage = false) {
     let elemNomHote = document.querySelector(blocFormulaire + " > div:nth-child(3) div[class*='formItemInput']");
     configLivebox.dyndns["nom de hôte complet"] = elemNomHote ? (elemNomHote.innerText || elemNomHote.textContent).trim() : "";
 
-    let selecteurTableauDynDNS = "#network_dyndns_mainBlock table";
+    /* ========================================================================= */
+    /* 🌟 NOUVEAU : EXTRACTION DU TABLEAU AVEC RÉCUPÉRATION DU 'TITLE'           */
+    /* ========================================================================= */
+    let selecteurTableauDynDNS = "#network_dyndns_mainBlock div[class*='pageSectionBorder'] table.widgetTable, #gwtActivityPanel form table.widgetTable";
+    let tableauDynDNS = document.querySelector(selecteurTableauDynDNS);
+    let dynDnsExtraits = [];
 
-    configLivebox.dyndns["DynDNS externes"] = extraireTableau(
-        selecteurTableauDynDNS,
-        {
-            "Service": 0,
-            "Nom d'hôte/de domaine": 1,
-            "Mot de passe": 3,
-            "Mise à jour": 4,
-            "Activer": 5
+    if (tableauDynDNS) {
+        let lignesTableau = tableauDynDNS.querySelectorAll("tbody > tr");
+        
+        for (let ligne of lignesTableau) {
+            let cellules = ligne.querySelectorAll("td");
+            /* Vérifier que c'est bien une ligne de données (au moins 6 colonnes) */
+            if (cellules.length >= 6) {
+                let serviceText = cellules[0].innerText.trim();
+                
+                /* Ignorer les lignes d'en-tête ou vides */
+                if (!serviceText || serviceText.toLowerCase() === "service") continue; 
+
+                /* 1. Récupération intelligente du nom de domaine via l'attribut 'title' */
+                let divNom = cellules[1].querySelector("div[title]");
+                let nomComplet = divNom ? divNom.getAttribute("title").trim() : cellules[1].innerText.trim();
+
+                let identifiant = cellules[2].innerText.trim();
+                let motDePasse = cellules[3].innerText.trim(); // Restera "******" à cause du serveur
+
+                /* 2. Lecture de l'état du Toggle (Activer) */
+                let htmlActiver = cellules[5].innerHTML.toLowerCase();
+                let actif = htmlActiver.includes("switch_on") || htmlActiver.includes("checked");
+
+                dynDnsExtraits.push({
+                    "Service": serviceText,
+                    "Nom d'hôte/de domaine": nomComplet,
+                    "Identifiant": identifiant,
+                    "Mot de passe": motDePasse,
+                    "Activer": actif
+                });
+            }
         }
-    );
+    }
 
+    configLivebox.dyndns["DynDNS externes"] = dynDnsExtraits;
     localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    console.log("✅ Données DynDNS extraites :", dynDnsExtraits);
 
     /* ========================================================================= */
     /* GESTION DE LA POP-UP                                                      */

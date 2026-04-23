@@ -68,12 +68,27 @@ window.executerAirbox = async function() {
                     }
                 };
 
-                /* Vérifier l'état initial */
+                let veutEtreActifJson = false; 
+                let clesEtat = ["activé", "active", "état", "etat"];
+                let etatTrouveDansJson = false;
+                for (let cle of clesEtat) {
+                    if (configAirbox[cle] !== undefined) {
+                        let v = String(configAirbox[cle]).toLowerCase();
+                        veutEtreActifJson = (v === "true" || v === "activé" || v === "active" || v === "1" || v === "on");
+                        etatTrouveDansJson = true;
+                        break;
+                    }
+                }
+                // Si aucune clé d'état n'existe dans le JSON, on suppose qu'il faut l'activer par défaut
+                if(!etatTrouveDansJson) veutEtreActifJson = true;
+
+                /* Vérifier l'état actuel de la box */
                 let radioActive = await window.attendreElementDansDoc(docIframe, "#airbox_activation_status_activated", 10000);
-                let etatInitial = (radioActive && radioActive.checked) ? "activé" : "désactivé";
+                let estActuellementActif = (radioActive && radioActive.checked);
 
                 /* Si désactivé, on l'active temporairement pour faire apparaître les champs */
-                if (etatInitial === "désactivé" && radioActive) {
+                if (!estActuellementActif && radioActive) {
+                    console.log("👉 Activation temporaire pour afficher les paramètres...");
                     if (typeof window.cliquerPur === "function") window.cliquerPur(radioActive);
                     else radioActive.click();
                     await window.attendrePause(2000);
@@ -140,20 +155,27 @@ window.executerAirbox = async function() {
                 /* Sauvegarde des données insérées */
                 await sauvegarderRobuste();
 
-                /* Restauration de l'état désactivé si nécessaire */
-                if (etatInitial === "désactivé") {
-                    docIframe = iframe.contentDocument || iframe.contentWindow.document; // Rafraîchir le DOM
-                    let btnDesactiver = await window.attendreElementDansDoc(docIframe, "#airbox_activation_status_deactivated", 5000);
-                    if (btnDesactiver) {
-                        console.log("👉 Restauration de l'état initial (Désactivé)...");
-                        if (typeof window.cliquerPur === "function") window.cliquerPur(btnDesactiver);
-                        else btnDesactiver.click();
+                /* 🌟 RESTAURATION DE L'ÉTAT SELON LE JSON */
+                docIframe = iframe.contentDocument || iframe.contentWindow.document; // Rafraîchir le DOM
+                let radioActiveFinal = docIframe.querySelector("#airbox_activation_status_activated");
+                let radioDesactiveFinal = docIframe.querySelector("#airbox_activation_status_deactivated");
+                let etatCourantFinal = (radioActiveFinal && radioActiveFinal.checked);
+
+                if (veutEtreActifJson !== etatCourantFinal) {
+                    console.log(`👉 Application de l'état final depuis le JSON (${veutEtreActifJson ? 'Activé' : 'Désactivé'})...`);
+                    let btnCible = veutEtreActifJson ? radioActiveFinal : radioDesactiveFinal;
+                    if (btnCible) {
+                        if (typeof window.cliquerPur === "function") window.cliquerPur(btnCible);
+                        else btnCible.click();
                         await window.attendrePause(1000);
                         
-                        /* Nouvelle sauvegarde pour l'état désactivé */
+                        /* Nouvelle sauvegarde pour valider l'état final */
                         await sauvegarderRobuste();
                     }
+                } else {
+                    console.log(`✅ L'état final correspond déjà au JSON (${veutEtreActifJson ? 'Activé' : 'Désactivé'}).`);
                 }
+
             } else {
                 console.warn("⚠️ L'iframe de l'Airbox n'a pas chargé.");
             }

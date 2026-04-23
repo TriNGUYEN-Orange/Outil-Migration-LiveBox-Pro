@@ -125,6 +125,6 @@ window.executerParefeu = async function() {
     console.log("🔄 Retour à l'accueil...");
     if (typeof window.retournerAccueil === "function") {
         await window.retournerAccueil();
-        await window.attendrePause(2000); /* Attente pour l'animation de retour */
+        await window.attendrePause(2000); 
     }
 };

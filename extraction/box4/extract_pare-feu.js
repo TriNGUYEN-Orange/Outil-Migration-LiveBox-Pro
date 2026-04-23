@@ -21,7 +21,6 @@ window.extraireParefeu = async function(estRattrapage = false) {
     /* 1. Navigation vers la page Pare-feu */
     simulerClic("#menu_menuNetwork_firewall_hyperlink");
 
-    /* 🛡️ REFACTOR : Attendre l'apparition concrète des boutons radio, pas d'une div incertaine */
     let selecteurRadiosPareFeu = "#network_firewall_protectionSection_mainBlock input[type='radio']";
     await attendreElement(selecteurRadiosPareFeu, 30000);
 
