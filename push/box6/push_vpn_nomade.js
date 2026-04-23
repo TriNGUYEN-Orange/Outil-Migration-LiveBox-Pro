@@ -52,11 +52,11 @@ window.executerVpnNomade = async function() {
                 let compte = comptes[i];
                 console.log("⏳ Vérification du compte (" + (i + 1) + "/" + maxComptes + ") : " + compte["nom de l'utilisateur"]);
 
-                /* --- Appel des méthodes globales PushUI --- */
-                let nomConforme = await window.PushUI.validerNom(compte["nom de l'utilisateur"], "Utilisateur");
+                /* 🌟 APPEL DIRECT AU POP-UP AVEC LE NOM DU MODULE "VPN Nomade" 🌟 */
+                let nomConforme = await window.PushUI.validerNom(compte["nom de l'utilisateur"], "Utilisateur", "VPN Nomade");
                 if (nomConforme === null) { console.log("⏭️ Compte ignoré."); continue; }
                 
-                let mdpConforme = await window.PushUI.validerMotDePasse(compte["mot de passe de l'utilisateur"], nomConforme, "User");
+                let mdpConforme = await window.PushUI.validerMotDePasse(compte["mot de passe de l'utilisateur"], nomConforme, "VPN Nomade", "User");
                 if (mdpConforme === null) { console.log("⏭️ Compte ignoré."); continue; }
                 
                 compte["nom de l'utilisateur"] = nomConforme;

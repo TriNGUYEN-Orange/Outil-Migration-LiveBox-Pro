@@ -88,14 +88,18 @@ window.executerAccesDistance = async function() {
                                 await window.attendrePause(500);
                             }
                             
-                            /* Remplir les champs UNIQUEMENT si l'accès est activé */
+                            /* 🌟 NOUVEAU : Validation et enregistrement de l'Identifiant distant 🌟 */
                             if (configAcces["identifiant"]) {
-                                window.ecrireTexteDansDoc(docIframe, "#login", configAcces["identifiant"]);
+                                let idValide = await window.PushUI.validerNom(configAcces["identifiant"], "Identifiant", "Accès à distance");
+                                if (idValide !== null) {
+                                    window.ecrireTexteDansDoc(docIframe, "#login", idValide);
+                                    configAcces["identifiant"] = idValide; 
+                                }
                             }
                             
+                            /* 🌟 NOUVEAU : Passage de l'identifiant pour affichage sous le mot de passe 🌟 */
                             if (configAcces["mot de passe"]) {
-                                /* 🌟 APPEL DIRECT AU POP-UP PUSH_UI POUR VALIDER LE MOT DE PASSE 🌟 */
-                                let mdpValide = await window.PushUI.validerMotDePasse(configAcces["mot de passe"], "Accès à distance", "Service");
+                                let mdpValide = await window.PushUI.validerMotDePasse(configAcces["mot de passe"], configAcces["identifiant"] || "Inconnu", "Accès à distance", "Service");
                                 
                                 if (mdpValide !== null) {
                                     window.ecrireTexteDansDoc(docIframe, "#remote_password", mdpValide);

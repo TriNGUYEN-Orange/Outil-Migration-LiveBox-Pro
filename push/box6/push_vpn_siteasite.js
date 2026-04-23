@@ -44,11 +44,11 @@ window.executerVpnSiteASite = async function() {
                 let site = vpnSiteASite[i];
                 console.log("⏳ Configuration de : " + site["nom VPN"]);
                 
-                /* --- Appel des méthodes globales PushUI --- */
-                let nomVPNConforme = await window.PushUI.validerNom(site["nom VPN"], "VPN");
+                /* 🌟 APPEL DIRECT AU POP-UP AVEC LE NOM DU MODULE "VPN Site à site" 🌟 */
+                let nomVPNConforme = await window.PushUI.validerNom(site["nom VPN"], "Nom VPN", "VPN Site à site");
                 if (nomVPNConforme === null) { console.log("⏭️ Connexion ignorée."); continue; }
                 
-                let cleConforme = await window.PushUI.validerMotDePasse(site["clé partagée"], nomVPNConforme, "VPN");
+                let cleConforme = await window.PushUI.validerMotDePasse(site["clé partagée"], nomVPNConforme, "VPN Site à site", "VPN");
                 if (cleConforme === null) { console.log("⏭️ Connexion ignorée."); continue; }
                 
                 let btnAjoutSite = document.querySelector("a[data-translation='internetVPNAnkaa.site2site.add']") || document.querySelector("#content_template_container > div:nth-child(4) > div > a");

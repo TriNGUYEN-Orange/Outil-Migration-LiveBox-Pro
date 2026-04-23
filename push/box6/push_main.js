@@ -11,7 +11,24 @@
        ⚙️ CONFIGURATION DU COMPORTEMENT
        ========================================= */
     const BASE_URL = 'http://127.0.0.1:5500';
-    const TOTAL_ETAPES = 8; /* Ajusté selon vos modules actifs */
+
+    /* 🌟 LISTE DYNAMIQUE DES MODULES 🌟
+       Changez "actif: true" pour activer un module, ou "false" pour l'ignorer. */
+    const LISTE_MODULES = [
+        { actif: false, nomUI: "Réveil du système", nomEnv: "Wake-Up", fichier: "push_wakeup.js", fonction: "executerWakeUp" },
+        { actif: false, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" },
+        { actif: false, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
+        { actif: true,  nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" },
+        { actif: false, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },
+        { actif: true, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },
+        { actif: false, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_nomade_avance.js", fonction: "executerVpnNomadeAvance" },
+        { actif: true, nomUI: "VPN Site à Site", nomEnv: "VPN Site à Site", fichier: "push_vpn_siteasite.js", fonction: "executerVpnSiteASite" },
+        { actif: false, nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" }
+    ];
+
+    /* Calcul automatique du nombre total d'étapes */
+    const MODULES_A_EXECUTER = LISTE_MODULES.filter(mod => mod.actif);
+    const TOTAL_ETAPES = MODULES_A_EXECUTER.length;
     /* ========================================= */
 
     async function chargerModule(chemin) {
@@ -36,7 +53,7 @@
         if (typeof window.attendrePause === "function") await window.attendrePause(1500); 
     };
 
-    /* --- EXECUTION --- */
+    /* --- EXECUTION PRINCIPALE --- */
     try {
         /* 1. Charger d'abord l'UI */
         await chargerModule('/push/box6/push_ui.js');
@@ -49,68 +66,36 @@
         UI.maj(0, TOTAL_ETAPES, "Chargement des utilitaires...");
         await chargerModule('/push/push_utils.js');
 
-        /*
-        UI.maj(1, TOTAL_ETAPES, "Réveil du système");
-        await preparerEnvironnement("Wake-Up");
-        await chargerModule('/push/box6/push_wakeup.js');
-        if (typeof window.executerWakeUp === "function") await window.executerWakeUp();
+        /* 3. Exécution Dynamique (BOUCLE DRY) */
+        for (let i = 0; i < MODULES_A_EXECUTER.length; i++) {
+            let moduleCourant = MODULES_A_EXECUTER[i];
+            let etapeActuelle = i + 1; /* L'étape commence à 1 */
 
-        UI.maj(2, TOTAL_ETAPES, "Réseaux Wi-Fi");
-        await preparerEnvironnement("Wi-Fi");
-        await chargerModule('/push/box6/push_wifi.js');
-        if (typeof window.executerWifi === "function") await window.executerWifi();
+            UI.maj(etapeActuelle, TOTAL_ETAPES, moduleCourant.nomUI);
+            await preparerEnvironnement(moduleCourant.nomEnv);
+            await chargerModule(`/push/box6/${moduleCourant.fichier}`);
+            
+            /* Appel dynamique de la fonction via l'objet window */
+            if (typeof window[moduleCourant.fonction] === "function") {
+                await window[moduleCourant.fonction]();
+            } else {
+                throw new Error(`Fonction window.${moduleCourant.fonction} introuvable.`);
+            }
+        }
 
-        UI.maj(3, TOTAL_ETAPES, "Pare-feu");
-        await preparerEnvironnement("Pare-feu");
-        await chargerModule('/push/box6/push_parefeu.js');
-        if (typeof window.executerParefeu === "function") await window.executerParefeu();
-        else throw new Error("Fonction window.executerParefeu introuvable.");
-        */
-
-        UI.maj(4, TOTAL_ETAPES, "Accès à distance");
-        await preparerEnvironnement("Accès à distance");
-        await chargerModule('/push/box6/push_acces_distance.js');
-        if (typeof window.executerAccesDistance === "function") await window.executerAccesDistance();
-        else throw new Error("Fonction window.executerAccesDistance introuvable.");
-        
-            /*
-        UI.maj(5, TOTAL_ETAPES, "Airbox");
-        await preparerEnvironnement("Airbox");
-        await chargerModule('/push/box6/push_airbox.js');
-        if (typeof window.executerAirbox === "function") await window.executerAirbox();
-        else throw new Error("Fonction window.executerAirbox introuvable.");
-        
-
-        
-        UI.maj(6, TOTAL_ETAPES, "VPN Nomade");
-        await preparerEnvironnement("VPN Nomade");
-        await chargerModule('/push/box6/push_vpn_nomade.js');
-        if (typeof window.executerVpnNomade === "function") await window.executerVpnNomade();
-        else throw new Error("Fonction window.executerVpnNomade introuvable.");
-
-        UI.maj(6, TOTAL_ETAPES, "VPN Nomade Avancés");
-        await preparerEnvironnement("VPN Nomade Avancés");
-        await chargerModule('/push/box6/push_vpn_nomade_avance.js');
-        if (typeof window.executerVpnNomadeAvance === "function") await window.executerVpnNomadeAvance();
-        else throw new Error("Fonction window.executerVpnNomadeAvance introuvable.");
-        
-
-        UI.maj(7, TOTAL_ETAPES, "VPN Site à Site");
-        await preparerEnvironnement("VPN Site à Site");
-        await chargerModule('/push/box6/push_vpn_siteasite.js');
-        if (typeof window.executerVpnSiteASite === "function") await window.executerVpnSiteASite();
-        else throw new Error("Fonction window.executerVpnSiteASite introuvable.");
-        
-
-        UI.maj(8, TOTAL_ETAPES, "Routage");
-        await preparerEnvironnement("Routage");
-        await chargerModule('/push/box6/push_routage.js');
-        if (typeof window.executerRoutage === "function") await window.executerRoutage();
-        else throw new Error("Fonction window.executerRoutage introuvable.");
-        */
-
-        /* Fin du processus */
+        /* Fin du processus interne */
         window._migrationEnCours = false;
+
+        /* ==================================================================== */
+        /* 🌟 RÉSUMÉ GLOBAL ET GÉNÉRATION PDF 🌟                                */
+        /* ==================================================================== */
+        if (UI && typeof UI.afficherResume === "function") {
+            console.log("📊 Affichage du résumé global des modifications...");
+            await chargerModule('/push/box6/push_pdf.js');
+            await UI.afficherResume(); // Le script va attendre ici
+        }
+
+        /* Message de succès final dans l'interface noire */
         UI.succes();
 
     } catch (erreurGrave) {
