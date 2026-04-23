@@ -10,7 +10,7 @@
     /* =========================================
        ⚙️ CONFIGURATION DU COMPORTEMENT
        ========================================= */
-    const BASE_URL = 'http://127.0.0.1:5500';
+    const BASE_URL = 'https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro/demo/test';
 
     /* 🌟 LISTE DYNAMIQUE DES MODULES 🌟
        Changez "actif: true" pour activer un module, ou "false" pour l'ignorer. */
