@@ -7,7 +7,7 @@ let navigateurChoisi = "";
 let codeExtractBookmarklet = ""; 
 let codeApplyBookmarklet = "";
 
-const LOCAL_BASE_URL = "http://127.0.0.1:5500"; 
+const LOCAL_BASE_URL = "https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro"; 
 
 // --- GÉNERATEURS DE BOOKMARKLETS (Architecture Loader - LOCAL) ---
 function genererCodeExtraction(boxAncienne) {
