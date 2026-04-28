@@ -16,8 +16,6 @@
         <span id="recapAncienne" class="pillule-recap">Box actuelle : -</span>
         <span class="separateur-recap">→</span>
         <span id="recapNouvelle" class="pillule-recap">Nouvelle Box : -</span>
-        <span class="separateur-recap">|</span>
-        <span id="recapNavigateur" class="pillule-recap">Navigateur : -</span>
         
         <button id="boutonModifier" class="bouton-modifier" onclick="resetToInitialView()">Modifier les choix</button>
         
@@ -43,15 +41,6 @@
                 <button class="bouton-choix" onclick="choisirNouvelle(event, 'livebox7')">Livebox 7</button>
             </div>
         </div>
-
-        <div id="etape3" class="conteneur-question masque">
-            <p>Quel est votre navigateur ?</p>
-            <div class="groupe-boutons">
-                <button class="bouton-choix" onclick="choisirNavigateur(event, 'chrome')">Chrome</button>
-                <button class="bouton-choix" onclick="choisirNavigateur(event, 'firefox')">Firefox</button>
-                <button class="bouton-choix" onclick="choisirNavigateur(event, 'edge')">Edge</button>
-            </div>
-        </div>
     </div>
 
     <div id="pageInstructions" class="masque">
@@ -60,7 +49,6 @@
     </div>
 
     <script src="steps.js"></script>
-
     <script src="logic.js"></script>
 </body>
 </html>

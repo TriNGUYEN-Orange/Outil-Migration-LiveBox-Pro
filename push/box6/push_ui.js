@@ -1,7 +1,7 @@
 /* --- /push/box6/push_ui.js --- */
 
 window.PushUI = {
-    AFFICHER_ECRAN_NOIR: false, 
+    AFFICHER_ECRAN_NOIR: true, 
     journalModifications: [], 
 
     CSS: `

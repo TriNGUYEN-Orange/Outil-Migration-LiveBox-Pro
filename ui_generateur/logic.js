@@ -1,7 +1,6 @@
 // Variables pour stocker les données de migration
 let ancienneBox = "";
 let nouvelleBox = "";
-let navigateurChoisi = "";
 
 // Variables globales pour les codes des Bookmarklets
 let codeExtractBookmarklet = ""; 
@@ -57,14 +56,7 @@ function choisirNouvelle(event, choix) {
     nouvelleBox = choix;
     markedAsSelected('etape2');
     event.currentTarget.classList.add('choisi');
-    revealNextStep('etape3');
-}
-
-function choisirNavigateur(event, choix) {
-    createRipple(event);
-    navigateurChoisi = choix;
-    markedAsSelected('etape3');
-    event.currentTarget.classList.add('choisi');
+    // Le choix de la nouvelle box déclenche directement la vue finale
     triggerFinalView();
 }
 
@@ -95,7 +87,6 @@ function triggerFinalView() {
 function updateRecapBar() {
     document.getElementById("recapAncienne").innerText = "Actuelle : " + getSelectedText('etape1');
     document.getElementById("recapNouvelle").innerText = "Nouvelle : " + getSelectedText('etape2');
-    document.getElementById("recapNavigateur").innerText = "Nav : " + getSelectedText('etape3');
 }
 
 function getSelectedText(stepId) {
@@ -111,12 +102,12 @@ function resetToInitialView() {
     pageInstructions.classList.remove("active");
     setTimeout(() => { pageInstructions.classList.add("masque"); }, 500); 
 
-    ancienneBox = ""; nouvelleBox = ""; navigateurChoisi = "";
+    ancienneBox = ""; nouvelleBox = "";
     document.querySelectorAll('.conteneur-question').forEach(cont => {
         cont.classList.add('masque'); 
         cont.classList.remove('active'); 
     });
-    ['etape1', 'etape2', 'etape3'].forEach(markedAsSelected);
+    ['etape1', 'etape2'].forEach(markedAsSelected);
     revealNextStep('etape1');
 }
 
