@@ -12,12 +12,11 @@
        ========================================= */
     const BASE_URL = 'http://127.0.0.1:5500';
 
-    /* 🌟 LISTE DYNAMIQUE DES MODULES 🌟 */
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réveil du système", nomEnv: "Wake-Up", fichier: "push_wakeup.js", fonction: "executerWakeUp" },
         { actif: true, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" },
         { actif: true, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
-        { actif: true,  nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" },
+        { actif: true, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" },
         { actif: true, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },
         { actif: true, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },
         { actif: true, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_nomade_avance.js", fonction: "executerVpnNomadeAvance" },
@@ -31,8 +30,7 @@
     async function chargerModule(chemin) {
         return new Promise((resolve, reject) => {
             let script = document.createElement('script');
-            let urlComplete = BASE_URL + chemin + '?v=' + Date.now();
-            script.src = urlComplete;
+            script.src = BASE_URL + chemin + '?v=' + Date.now();
             script.onload = () => resolve();
             script.onerror = () => reject(new Error(`Fichier introuvable : ${chemin}`));
             document.head.appendChild(script);
@@ -49,7 +47,7 @@
     };
 
     /* ==================================================================== */
-    /* 🚀 LE MOTEUR PRINCIPAL DE MIGRATION (Isolé pour être appelé à la volée) */
+    /* 🚀 LE MOTEUR PRINCIPAL DE MIGRATION                                  */
     /* ==================================================================== */
     async function demarrerMigration() {
         window._migrationEnCours = true;
@@ -57,6 +55,22 @@
             await chargerModule('/push/box6/push_ui.js');
             const UI = window.PushUI;
 
+            await chargerModule('/outil/verification.js');
+            
+            if (window.ExtractVerification && typeof window.ExtractVerification.verifierEnvironnement === "function") {
+                /* On passe "true" car on est en mode PUSH (besoin du JSON) */
+                let environnementOk = await window.ExtractVerification.verifierEnvironnement(true);
+                if (!environnementOk) {
+                    window._migrationEnCours = false;
+                    return; /* Arrêt : soit URL/Auth KO, soit annulation de l'upload JSON */
+                }
+            } else {
+                console.error("❌ Impossible de charger outil/verification.js");
+                window._migrationEnCours = false;
+                return;
+            }
+
+            /* Lancement de l'interface d'attente (Écran Noir) */
             UI.injecter();
             await new Promise(r => setTimeout(r, 1000)); 
 
@@ -93,6 +107,7 @@
 
         } catch (erreurGrave) {
             window._migrationEnCours = false;
+            /* Pop-up d'erreur critique (Géré par push_ui.js s'il est bien chargé) */
             if (window.PushUI && typeof window.PushUI.erreur === "function") {
                 window.PushUI.erreur(erreurGrave.message);
             } else {
@@ -101,74 +116,7 @@
         }
     }
 
-    /* ==================================================================== */
-    /* 🌟 VÉRIFICATION DE LA CONFIGURATION ET SYSTÈME D'UPLOAD JSON 🌟      */
-    /* ==================================================================== */
-    let configStr = localStorage.getItem("livebox_migration_config");
-    if (!configStr || configStr.trim() === "" || configStr === "{}") {
-        
-        /* Création du Pop-up autonome avec bouton d'Upload */
-        const overlay = document.createElement("div");
-        overlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:2147483647; display:flex; align-items:center; justify-content:center; backdrop-filter: blur(3px); font-family: 'Segoe UI', sans-serif;";
-        
-        const boite = document.createElement("div");
-        boite.style.cssText = "background:#fff; padding:30px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-width:450px; width:90%; text-align:center; border-top: 5px solid #ff7900;";
-        
-        boite.innerHTML = `
-            <h3 style="color:#ff7900; margin-top:0; font-size:22px;">⚠️ Aucune donnée</h3>
-            <p style="font-size:15px; color:#555; margin-bottom: 25px;">
-                Lancez d'abord l'<b>Extraction</b> sur l'ancienne box, ou importez votre <b>fichier JSON</b> ici :
-            </p>
-            <div style="display:flex; flex-direction:column; gap:10px; width: 100%;">
-                <label for="upload-json-config" style="background:#2196F3; color:#fff; padding:12px; border-radius:6px; cursor:pointer; font-weight:bold;">
-                    📂 Importer le fichier JSON
-                </label>
-                <input type="file" id="upload-json-config" accept=".json" style="display:none;" />
-                
-                <button id="btn-fermer-err-init" style="padding:10px; border:none; border-radius:6px; cursor:pointer; background:#eee; color:#555; font-weight:bold;">Annuler</button>
-            </div>
-        `;
-        
-        overlay.appendChild(boite);
-        document.body.appendChild(overlay);
-
-        /* ---------------------------------------------------------
-           Logique d'importation du fichier JSON
-           --------------------------------------------------------- */
-        document.getElementById("upload-json-config").addEventListener("change", function(event) {
-            const fichier = event.target.files[0];
-            if (!fichier) return;
-            
-            const lecteur = new FileReader();
-            lecteur.onload = function(e) {
-                try {
-                    const contenu = e.target.result;
-                    JSON.parse(contenu); /* Test pour s'assurer que c'est bien du JSON valide */
-                    
-                    /* Écriture dans le Local Storage */
-                    localStorage.setItem("livebox_migration_config", contenu);
-                    console.log("✅ Fichier JSON importé avec succès !");
-                    
-                    /* Fermeture du pop-up et lancement automatique du moteur */
-                    document.body.removeChild(overlay);
-                    demarrerMigration();
-                    
-                } catch (err) {
-                    alert("❌ Erreur : Le fichier sélectionné n'est pas un JSON valide.");
-                }
-            };
-            lecteur.readAsText(fichier);
-        });
-
-        /* Logique du bouton Annuler */
-        document.getElementById("btn-fermer-err-init").onclick = () => {
-            document.body.removeChild(overlay);
-        };
-
-        return; /* On stoppe l'exécution ici et on attend l'action de l'utilisateur */
-    }
-
-    /* Si les données existent déjà dans le Local Storage, on démarre direct ! */
+    /* On lance tout ! */
     demarrerMigration();
 
 })();

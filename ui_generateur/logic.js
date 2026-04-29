@@ -142,6 +142,18 @@ function afficherResultat() {
         const num = index + 1;
         const classeInitiale = num === 1 ? 'active' : 'masque'; 
         const contenuSupplementaire = etape.htmlExtra ? etape.htmlExtra : ""; 
+        
+        /* --- NOUVEAU : Création de la flèche de guidage pour l'étape 1 --- */
+        let codeHtmlFlecheGuide = '';
+        if (num === 1) {
+            codeHtmlFlecheGuide = `
+                <div class="lm-next-hint">
+                    <span class="lm-hint-text">Cliquer pour continuer</span>
+                    <span class="lm-hint-arrow">➔</span>
+                </div>
+            `;
+        }
+
         htmlEtapes += `
             <div id="instruction-etape-${num}" class="bloc-instruction ${classeInitiale}">
                 <div class="contenu-etape">
@@ -149,7 +161,11 @@ function afficherResultat() {
                     <p>${etape.desc}</p>
                     ${contenuSupplementaire}
                 </div>
-                <button id="btn-valider-${num}" class="bouton-valider-etape" onclick="validerEtapeInstruction(${num}, ${etapes.length})">Terminer cette étape</button>
+                
+                <div class="lm-actions-wrapper">
+                    ${codeHtmlFlecheGuide}
+                    <button id="btn-valider-${num}" class="bouton-valider-etape" onclick="validerEtapeInstruction(${num}, ${etapes.length})">Terminer cette étape</button>
+                </div>
             </div>
         `;
     });
