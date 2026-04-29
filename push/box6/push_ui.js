@@ -90,7 +90,6 @@ window.PushUI = {
             const btnDiv = document.createElement("div"); 
             btnDiv.style.cssText = "display:flex; justify-content:center; align-items:center; margin-top:25px; gap:15px;";
             
-            /* 🌟 APPEL AU MODULE EXTERNE PUSH_PDF.JS 🌟 */
             const btnPdf = document.createElement("button"); 
             btnPdf.id = "btn-telecharger-pdf";
             btnPdf.innerText = "📄 Télécharger le Rapport";
@@ -110,7 +109,11 @@ window.PushUI = {
             btnOk.style.cssText = "padding:12px 25px; border:none; border-radius:6px; cursor:pointer; background:#4caf50; color:white; font-weight:bold; font-size:15px; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3); transition: transform 0.2s;";
             btnOk.onmouseover = () => btnOk.style.transform = "scale(1.03)";
             btnOk.onmouseout = () => btnOk.style.transform = "scale(1)";
-            btnOk.onclick = () => { document.body.removeChild(overlay); this.journalModifications = []; resolve(); };
+            btnOk.onclick = () => { 
+                document.body.removeChild(overlay); 
+                this.journalModifications = []; 
+                resolve(); 
+            };
             
             btnDiv.append(btnPdf, btnOk); boite.append(h3, msg, conteneurTable, btnDiv); overlay.appendChild(boite); 
             const styleExtra = document.createElement('style'); styleExtra.innerHTML = this.CSS; document.head.appendChild(styleExtra);
@@ -184,5 +187,46 @@ window.PushUI = {
             btnValider.onclick = () => { document.body.removeChild(overlay); resolve(input.value); };
             btnDiv.append(btnAnnuler, btnValider); boite.append(h3, msg, inputWrapper, btnDiv); overlay.appendChild(boite); document.body.appendChild(overlay);
         });
+    },
+
+    /* =========================================================
+       🌟 NOUVEAU : FONCTIONS MANQUANTES AJOUTÉES ICI
+       ========================================================= */
+    succes: function() {
+        /* On supprime l'écran noir de chargement une fois tout terminé
+           pour rendre le contrôle total à l'utilisateur ! */
+        const overlayNoir = document.getElementById("livebox-migration-overlay");
+        if (overlayNoir) {
+            document.body.removeChild(overlayNoir);
+        }
+    },
+
+    erreur: function(message) {
+        if (!this.AFFICHER_ECRAN_NOIR) return;
+        const titre = document.getElementById("lm-titre");
+        const texte = document.getElementById("lm-step-text");
+        const spinner = document.getElementById("lm-spinner");
+        const barre = document.getElementById("lm-progress-bar");
+        
+        if (titre) { titre.innerHTML = "❌ Erreur Critique"; titre.style.color = "#f44336"; }
+        if (texte) texte.innerHTML = message;
+        if (spinner) spinner.style.display = "none";
+        if (barre) barre.style.background = "#f44336";
+
+        const box = document.getElementById("lm-box");
+        if (box && !document.getElementById("btn-fermer-erreur")) {
+            const btnFermer = document.createElement("button");
+            btnFermer.id = "btn-fermer-erreur";
+            btnFermer.innerText = "Fermer";
+            btnFermer.style.cssText = "margin-top:20px; padding:10px 30px; border:none; border-radius:6px; cursor:pointer; background:#f44336; color:white; font-weight:bold;";
+            btnFermer.onclick = () => {
+                const overlay = document.getElementById("livebox-migration-overlay");
+                if (overlay) document.body.removeChild(overlay);
+            };
+            box.appendChild(btnFermer);
+        }
+        
+        const warning = document.getElementById("lm-warning");
+        if (warning) warning.style.display = "none";
     }
 };

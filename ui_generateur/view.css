@@ -392,3 +392,58 @@ body.mode-final #zoneWizard {
     cursor: default;
     box-shadow: none;
 }
+
+
+/* =========================================================
+   ANIMATION FLÈCHE GUIDAGE (Style Simple)
+   ========================================================= */
+
+/* Conteneur pour aligner à droite */
+.lm-actions-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; 
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.lm-actions-wrapper .bouton-valider-etape {
+    margin-left: 0;
+    margin-top: 0;
+}
+
+/* Texte simple et discret */
+.lm-next-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #ff7900; /* Orange classique */
+    font-size: 14px;
+    font-weight: bold;
+    font-style: italic; /* Style italique léger */
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.4s ease-out;
+}
+
+/* Apparition de l'indication */
+.bloc-instruction.active .lm-next-hint {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Masquer quand l'étape est validée */
+.bloc-instruction.terminee .lm-next-hint {
+    display: none !important;
+}
+
+/* Animation discrète de la flèche */
+.lm-hint-arrow {
+    display: inline-block;
+    animation: lm-jump-simple 1.2s infinite ease-in-out;
+}
+
+@keyframes lm-jump-simple {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(5px); }
+}
