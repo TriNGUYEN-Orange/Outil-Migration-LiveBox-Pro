@@ -32,29 +32,31 @@ window.ExtractVerification = {
             }
 
             /* ========================================================================= */
-            /* 2. ANTI-ERREUR HUMAINE (Ignoré si on est en mode Application / Push)      */
+            /* 2. ANTI-ERREUR HUMAINE (Croisement d'outils et de Livebox)                */
             /* ========================================================================= */
-            if (!estModePush) {
-                let estOutilBox4 = false;
-                let scripts = document.getElementsByTagName("script");
-                for (let s of scripts) {
-                    /* On cherche spécifiquement le script principal d'extraction Box 4 */
-                    if (s.src && s.src.includes("/box4/extract_main.js")) {
-                        estOutilBox4 = true;
-                        break;
-                    }
-                }
+            
+            /* Détection de la box actuelle via le DOM */
+            let estSurBox6 = document.documentElement.className.includes("sah-mode-lb6") || document.getElementById("sah-mhs-mode-lb6") !== null;
+            let estSurBox4 = document.getElementById("header_logoOrange_image") !== null;
 
-                let estSurBox6 = document.documentElement.className.includes("sah-mode-lb6") || document.getElementById("sah-mhs-mode-lb6") !== null;
+            let btnFermer = `<button onclick="document.getElementById('lm-verif-overlay').remove();" style="background:#f44336; color:white; padding:10px 20px; border:none; border-radius:6px; font-weight:bold; font-size:15px; width:100%; cursor:pointer; box-sizing:border-box; margin-top:20px;">Fermer</button>`;
 
-                if (estOutilBox4 && estSurBox6) {
-                    let btnFermer = `<button onclick="document.getElementById('lm-verif-overlay').remove();" style="background:#f44336; color:white; padding:10px 20px; border:none; border-radius:6px; font-weight:bold; font-size:15px; width:100%; cursor:pointer; box-sizing:border-box; margin-top:20px;">Fermer</button>`;
-                    this.afficherPopup(
-                        "❌ Oups ! ", 
-                        `Outil <b>Livebox 4</b> lancé sur une <b>Livebox 6</b>.<br><br>Veuillez utiliser le bon favori.${btnFermer}`
-                    );
-                    return resolve(false); /* Arrêt immédiat */
-                }
+            /* Cas A : Outil d'Extraction lancé sur la nouvelle Box 6 */
+            if (!estModePush && estSurBox6) {
+                this.afficherPopup(
+                    "❌ Oups !", 
+                    `Outil d'<b>Extraction</b> lancé sur une <b>Nouvelle Box</b>.<br><br>Veuillez utiliser le bon favori.${btnFermer}`
+                );
+                return resolve(false); /* Arrêt immédiat */
+            }
+
+            /* Cas B : Outil d'Application lancé sur l'ancienne Box 4 */
+            if (estModePush && estSurBox4) {
+                this.afficherPopup(
+                    "❌ Oups !", 
+                    `Outil d'<b>Application</b> lancé sur une <b>Ancienne Box</b>.<br><br>Veuillez utiliser le bon favori.${btnFermer}`
+                );
+                return resolve(false); /* Arrêt immédiat */
             }
 
             /* 3. Vérification de Connexion (Compatible Box 4, 6 et 7) */

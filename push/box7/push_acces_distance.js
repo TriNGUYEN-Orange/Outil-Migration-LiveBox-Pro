@@ -1,80 +1,130 @@
-const CODE_PUSH_ACCES_DISTANCE = `
-    /* --- ÉTAPE : CONFIGURATION DE L'ACCÈS À DISTANCE --- */
+/* --- /push/box7/push_acces_distance.js --- */
+
+window.executerAccesDistance = async function() {
     console.log("⏳ Application des paramètres d'Accès à distance...");
 
+    let configJSON = localStorage.getItem("livebox_migration_config");
+    if (!configJSON) return;
+    let configLivebox = JSON.parse(configJSON);
+
     if (configLivebox && configLivebox["accès à distance"]) {
-        let btnAvance = await attendreElement("#sah_footer .icon-advanced", 10000);
+        let btnAvance = await window.attendreElement("#sah_footer .icon-advanced", 10000);
         
         if (btnAvance) {
-            cliquerBouton("#sah_footer .icon-advanced");
-            await attendrePause(800); 
+            window.cliquerBouton("#sah_footer .icon-advanced");
+            await window.attendrePause(800); 
             
-            let tuileAcces = await attendreElement("#internetRemote", 10000);
+            let tuileAcces = await window.attendreElement("#internetRemote", 10000);
             if (tuileAcces) {
                 tuileAcces.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                cliquerBouton("#internetRemote .widget");
+                await window.attendrePause(500);
                 
-                let iframe = await attendreElement("#iframeapp", 10000);
+                window.cliquerBouton("#internetRemote .widget");
+                
+                let iframe = await window.attendreElement("#iframeapp", 10000);
                 if (iframe) {
                     let docIframe = iframe.contentDocument || iframe.contentWindow.document;
-                    let radioTrue = await attendreElementDansDoc(docIframe, "#admin_true", 10000);
                     
-                    if (radioTrue) {
+                    /* 🚨 Box 7 utilise une CHECKBOX unique (#admin_true), pas de boutons radio ! */
+                    let checkboxAdmin = await window.attendreElementDansDoc(docIframe, "#admin_true", 10000);
+                    
+                    if (checkboxAdmin) {
                         let configAcces = configLivebox["accès à distance"];
                         let etatVoulu = configAcces["état"] ? configAcces["état"].toLowerCase() : "désactivé";
                         let estActiveVoulu = (etatVoulu === "activé" || etatVoulu === "active");
-                        
-                        let radioFalse = docIframe.querySelector("#admin_false");
+
+                        /* Fonction pour forcer le basculement de la checkbox et alerter l'interface */
+                        const forcerCheckbox = (cocheVoulue) => {
+                            if (checkboxAdmin.checked !== cocheVoulue) {
+                                let label = docIframe.querySelector('label[for="admin_true"]');
+                                if (label) {
+                                    window.cliquerPur(label);
+                                    label.click(); 
+                                } else {
+                                    window.cliquerPur(checkboxAdmin);
+                                    checkboxAdmin.click();
+                                }
+                                checkboxAdmin.checked = cocheVoulue;
+                                checkboxAdmin.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        };
 
                         if (estActiveVoulu) {
                             /* --- MODE ACTIVÉ --- */
-                            if (!radioTrue.checked) {
-                                let labelTrue = docIframe.querySelector('label[for="admin_true"]');
-                                if (labelTrue) cliquerPur(labelTrue);
-                                else cliquerPur(radioTrue);
-                                await attendrePause(500);
-                            }
+                            forcerCheckbox(true);
+                            await window.attendrePause(800);
                             
                             /* Remplir les champs UNIQUEMENT si l'accès est activé */
                             if (configAcces["identifiant"]) {
-                                ecrireTexteDansDoc(docIframe, "#login", configAcces["identifiant"]);
+                                window.ecrireTexteDansDoc(docIframe, "#login", configAcces["identifiant"]);
+                                let inpLogin = docIframe.querySelector("#login");
+                                if (inpLogin) {
+                                    inpLogin.dispatchEvent(new Event('input', { bubbles: true }));
+                                    inpLogin.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                                await window.attendrePause(200);
                             }
                             
                             if (configAcces["mot de passe"]) {
-                                let mdpValide = await obtenirMotDePasseConforme(configAcces["mot de passe"], "Accès à distance");
+                                let mdpValide = configAcces["mot de passe"];
+                                if (typeof window.obtenirMotDePasseConforme === "function") {
+                                    mdpValide = await window.obtenirMotDePasseConforme(configAcces["mot de passe"], "Accès à distance");
+                                } else if (window.PushUI && typeof window.PushUI.validerMotDePasse === "function") {
+                                    mdpValide = await window.PushUI.validerMotDePasse(configAcces["mot de passe"], "Accès à distance");
+                                }
+
                                 if (mdpValide) {
-                                    ecrireTexteDansDoc(docIframe, "#remote_password", mdpValide);
+                                    window.ecrireTexteDansDoc(docIframe, "#remote_password", mdpValide);
+                                    let inpPass = docIframe.querySelector("#remote_password");
+                                    if (inpPass) {
+                                        inpPass.dispatchEvent(new Event('input', { bubbles: true }));
+                                        inpPass.dispatchEvent(new Event('change', { bubbles: true }));
+                                    }
                                     configAcces["mot de passe"] = mdpValide; 
+                                    await window.attendrePause(200);
                                 }
                             }
                             
                             if (configAcces["port"]) {
                                 let portActuel = parseInt(configAcces["port"], 10);
                                 if (!isNaN(portActuel) && portActuel < 10000) portActuel = portActuel + 10000;
-                                ecrireTexteDansDoc(docIframe, "#port", portActuel.toString());
+                                window.ecrireTexteDansDoc(docIframe, "#port", portActuel.toString());
+                                let inpPort = docIframe.querySelector("#port");
+                                if (inpPort) {
+                                    inpPort.dispatchEvent(new Event('input', { bubbles: true }));
+                                    inpPort.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                                await window.attendrePause(200);
                             }
 
                         } else {
                             /* --- MODE DÉSACTIVÉ --- */
-                            if (radioFalse && !radioFalse.checked) {
-                                let labelFalse = docIframe.querySelector('label[for="admin_false"]');
-                                if (labelFalse) cliquerPur(labelFalse);
-                                else cliquerPur(radioFalse);
-                                await attendrePause(500);
-                            }
-                            /* 🚨 On ignore complètement la saisie des identifiants pour ne pas réactiver le bouton par erreur */
+                            forcerCheckbox(false);
+                            await window.attendrePause(800);
                         }
                         
+                        /* Réactiver l'interface avant de sauvegarder */
+                        docIframe.body.dispatchEvent(new Event('click', { bubbles: true }));
+                        await window.attendrePause(800);
+
                         /* Sauvegarde */
-                        let btnSave = docIframe.querySelector("#submit") || docIframe.querySelector("#save");
+                        let btnSave = docIframe.querySelector("#submit, #save, #bt_save, .btn-save");
                         if (btnSave) {
-                            cliquerPur(btnSave);
-                            await attendreFinSauvegarde(docIframe);
+                            btnSave.removeAttribute("disabled"); 
+                            btnSave.classList.remove("disabled");
+                            
+                            window.cliquerPur(btnSave);
+                            btnSave.click();
+                            await window.attendreFinSauvegarde(docIframe);
+                        } else {
+                            console.warn("⚠️ Bouton Save introuvable dans l'interface !");
                         }
+                    } else {
+                        console.error("❌ ERREUR : La case #admin_true est introuvable.");
                     }
                 }
             }
         }
-        await retournerAccueil();
+        await window.retournerAccueil();
     }
-`;
+};
