@@ -3,7 +3,7 @@
 window.executerAirbox = async function() {
     console.log("⏳ Application des paramètres Airbox...");
 
-    /* 🚨 Lecture directe depuis le localStorage */
+    /*  Lecture directe depuis le localStorage */
     let configStr = localStorage.getItem("livebox_migration_config");
     let configurationActuelle = null;
     

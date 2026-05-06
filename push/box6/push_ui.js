@@ -189,12 +189,7 @@ window.PushUI = {
         });
     },
 
-    /* =========================================================
-       🌟 NOUVEAU : FONCTIONS MANQUANTES AJOUTÉES ICI
-       ========================================================= */
     succes: function() {
-        /* On supprime l'écran noir de chargement une fois tout terminé
-           pour rendre le contrôle total à l'utilisateur ! */
         const overlayNoir = document.getElementById("livebox-migration-overlay");
         if (overlayNoir) {
             document.body.removeChild(overlayNoir);

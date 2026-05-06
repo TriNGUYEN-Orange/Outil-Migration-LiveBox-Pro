@@ -25,7 +25,7 @@ window.executerParefeu = async function() {
                 if (iframe) {
                     let docIframe = iframe.contentDocument || iframe.contentWindow.document;
                     
-                    /* 🚨 IDÉE : Attendre que le conteneur des boutons radio (div#security) soit complètement chargé[cite: 19] */
+                    /* IDÉE : Attendre que le conteneur des boutons radio (div#security) soit complètement chargé[cite: 19] */
                     console.log("⏳ Attente du chargement complet du bloc Pare-feu...");
                     let conteneurSecurity = await window.attendreElementDansDoc(docIframe, "div#security", 10000);
                     

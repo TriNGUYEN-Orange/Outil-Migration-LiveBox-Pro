@@ -7,12 +7,9 @@
         return;
     }
 
-    /* =========================================
-       ⚙️ CONFIGURATION DU COMPORTEMENT
-       ========================================= */
     const BASE_URL = 'http://127.0.0.1:5500';
 
-    /* 🌟 LISTE DYNAMIQUE DES MODULES (BOX 7) 🌟 */
+    /* LISTE DYNAMIQUE DES MODULES  */
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" },
         { actif: false, nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" },  //ok
@@ -21,8 +18,8 @@
         /* Les modules ci-dessous sont désactivés (false) en attendant d'être développés pour la Box 7 */
         { actif: false, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" }, //ok
         { actif: false, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" }, //ok
-        { actif: false, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },   
-        { actif: true, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_avance.js", fonction: "executerVpnNomadeAvance" },
+        { actif: false, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },   //ok
+        { actif: true, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_avance.js", fonction: "executerVpnNomadeAvance" }, //ok
         { actif: false, nomUI: "VPN Site à Site", nomEnv: "VPN Site à Site", fichier: "push_vpn_siteasite.js", fonction: "executerVpnSiteASite" }
     ];
 
@@ -49,7 +46,7 @@
     };
 
     /* ==================================================================== */
-    /* 🚀 LE MOTEUR PRINCIPAL DE MIGRATION                                  */
+    /*  LE MOTEUR PRINCIPAL DE MIGRATION                                  */
     /* ==================================================================== */
     async function demarrerMigration() {
         window._migrationEnCours = true;
@@ -57,7 +54,7 @@
             await chargerModule('/push/box7/push_ui.js');
             const UI = window.PushUI;
 
-            /* 🌟 CHARGEMENT ET VÉRIFICATION GLOBALE (URL, Auth, JSON, Anti-Erreur) 🌟 */
+            /*  CHARGEMENT ET VÉRIFICATION GLOBALE (URL, Auth, JSON, Anti-Erreur)  */
             await chargerModule('/outil/verification.js');
             
             if (window.ExtractVerification && typeof window.ExtractVerification.verifierEnvironnement === "function") {
@@ -75,11 +72,10 @@
                     };
                 }
                 
-                /* On passe "true" car on est en mode PUSH (besoin du JSON) */
                 let environnementOk = await window.ExtractVerification.verifierEnvironnement(true);
                 if (!environnementOk) {
                     window._migrationEnCours = false;
-                    return; /* Arrêt : soit URL/Auth KO, erreur de Box, soit annulation JSON */
+                    return; 
                 }
             } else {
                 console.error("❌ Impossible de charger outil/verification.js");
@@ -92,7 +88,10 @@
             await new Promise(r => setTimeout(r, 1000)); 
 
             if (UI && typeof UI.maj === "function") UI.maj(0, TOTAL_ETAPES, "Chargement des utilitaires...");
+    
             await chargerModule('/push/push_utils.js');
+            await chargerModule('/push/push_validation.js'); 
+            /* ========================================================== */
 
             /* Boucle dynamique d'exécution des modules */
             for (let i = 0; i < MODULES_A_EXECUTER.length; i++) {
@@ -102,7 +101,6 @@
                 if (UI && typeof UI.maj === "function") UI.maj(etapeActuelle, TOTAL_ETAPES, moduleCourant.nomUI);
                 await preparerEnvironnement(moduleCourant.nomEnv);
                 
-                /* Attention : On charge depuis le dossier /box7/ */
                 await chargerModule(`/push/box7/${moduleCourant.fichier}`);
                 
                 if (typeof window[moduleCourant.fonction] === "function") {
@@ -120,7 +118,6 @@
                 await UI.afficherResume(); 
             }
 
-            /* Nettoyage de l'écran noir */
             if (UI && typeof UI.succes === "function") {
                 UI.succes();
             } else {
@@ -129,7 +126,6 @@
 
         } catch (erreurGrave) {
             window._migrationEnCours = false;
-            /* Pop-up d'erreur critique */
             if (window.PushUI && typeof window.PushUI.erreur === "function") {
                 window.PushUI.erreur(erreurGrave.message);
             } else {
