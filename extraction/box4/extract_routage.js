@@ -23,7 +23,7 @@ window.extraireRoutage = async function(estRattrapage = false) {
     
     let conteneurRoutage = "#gwtActivityPanel form";
     
-    /* 🛡️ REFACTOR ANTI-LAG : On cible spécifiquement la VRAIE table de données repérée dans votre capture d'écran */
+    /*  REFACTOR ANTI-LAG : On cible spécifiquement la VRAIE table de données repérée dans votre capture d'écran */
     let selecteurVraieTable = conteneurRoutage + " table[class*='widgetTable']";
     
     /* 1. On attend l'apparition physique de la vraie table (15s max pour la 3G) */

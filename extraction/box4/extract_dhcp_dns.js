@@ -29,7 +29,7 @@ window.extraireDhcpDns = async function(estRattrapage = false) {
     configLivebox.dhcp_dns["adresse IP de fin"] = lireValeurInput("#network_dhcp_configuration_ipAddress_end_textbox");
     configLivebox.dhcp_dns["mode DNS"] = lireValeurInput("#network_dhcp_configuration_modeDNS_combobox");
     
-    /* REFACTOR : Sélecteur direct pour le tableau des baux statiques */
+    /*  Sélecteur direct pour le tableau des baux statiques */
     let selecteurTableauDHCP = "#network_dhcp_staticAddressesSection_mainBlock table";
     await attendreElement(selecteurTableauDHCP, 5000);
 

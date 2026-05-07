@@ -64,7 +64,7 @@ window.extraireDyndns = async function(estRattrapage = false) {
     configLivebox.dyndns["nom de hôte complet"] = elemNomHote ? (elemNomHote.innerText || elemNomHote.textContent).trim() : "";
 
     /* ========================================================================= */
-    /* 🌟 NOUVEAU : EXTRACTION DU TABLEAU AVEC RÉCUPÉRATION DU 'TITLE'           */
+    /* EXTRACTION DU TABLEAU AVEC RÉCUPÉRATION DU 'TITLE'           */
     /* ========================================================================= */
     let selecteurTableauDynDNS = "#network_dyndns_mainBlock div[class*='pageSectionBorder'] table.widgetTable, #gwtActivityPanel form table.widgetTable";
     let tableauDynDNS = document.querySelector(selecteurTableauDynDNS);
