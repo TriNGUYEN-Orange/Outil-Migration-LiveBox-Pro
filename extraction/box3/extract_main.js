@@ -47,6 +47,13 @@ window.executerExtractionBox3 = async function() {
         /* =================================================================== */
         await executerModuleNormal(1, "Accueil", window.extraireAccueilBox3, Verif.validerAccueil);
         await executerModuleNormal(2, "Réseaux Wi-Fi", window.extraireWifiBox3, Verif.validerWifi);
+        await executerModuleNormal(3, "Réseau Local (DHCP & DNS)", window.extraireDhcpDnsBox3, Verif.validerDhcpDns); 
+        await executerModuleNormal(4, "Table de Routage", window.extraireRoutageBox3, Verif.validerRoutage);
+        await executerModuleNormal(5, "NAT/PAT", window.extraireNatpatBox3, Verif.validerNatpat);
+        await executerModuleNormal(4, "DynDNS", window.extraireDyndnsBox3, Verif.validerDyndns);
+        await executerModuleNormal(7, "DMZ", window.extraireDmzBox3, Verif.validerDmz);
+        await executerModuleNormal(8, "Pare-feu", window.extraireParefeuBox3, Verif.validerParefeu);   
+
 
         /* =================================================================== */
         /* PHASE DE RATTRAPAGE                                                 */
@@ -133,7 +140,13 @@ window.executerExtractionBox3 = async function() {
     /* 3. CHARGER LES MODULES LOCAUX BOX 3 */
     const modulesBox3 = [
         "extract_accueil.js",
-        "extract_wifi.js"
+        "extract_wifi.js",
+        "extract_dhcp_dns.js",
+        "extract_routage.js",
+        "extract_natpat.js",
+        "extract_dyndns.js",
+        "extract_dmz.js",
+        "extract_parefeu.js"
     ];
 
     for (let mod of modulesBox3) {

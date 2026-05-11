@@ -59,7 +59,7 @@ window.extraireAccueil = async function() {
     let nomReseau = extraireInfoAccueil("SSID");
     configLivebox.wifi.ssid = (nomReseau !== "Introuvable") ? nomReseau : extraireInfoAccueil("nom du réseau");
     
-    /* 🛡️ CORRECTION : Extraction du mot de passe via son ID unique repéré dans le DOM */
+    /* Extraction du mot de passe via son ID unique repéré dans le DOM */
     let labelMdpFinal = document.querySelector("#homepage_wifi_wep_label");
     configLivebox.wifi.mot_de_passe = (labelMdpFinal && labelMdpFinal.nextElementSibling) ? labelMdpFinal.nextElementSibling.innerText.trim() : extraireInfoAccueil("clé d'accès");
     
