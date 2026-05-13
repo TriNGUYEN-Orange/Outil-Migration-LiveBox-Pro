@@ -52,7 +52,11 @@ window.executerExtractionBox3 = async function() {
         await executerModuleNormal(5, "NAT/PAT", window.extraireNatpatBox3, Verif.validerNatpat);
         await executerModuleNormal(4, "DynDNS", window.extraireDyndnsBox3, Verif.validerDyndns);
         await executerModuleNormal(7, "DMZ", window.extraireDmzBox3, Verif.validerDmz);
-        await executerModuleNormal(8, "Pare-feu", window.extraireParefeuBox3, Verif.validerParefeu);   
+        await executerModuleNormal(8, "Pare-feu", window.extraireParefeuBox3, Verif.validerParefeu); 
+        await executerModuleNormal(9, "VPN Nomade", window.extraireVpnNomadeBox3, Verif.validerVpnNomade);
+        await executerModuleNormal(10, "VPN Site à Site", window.extraireVpnSiteBox3, Verif.validerVpnSite);
+        await executerModuleNormal(11, "Accès à Distance", window.extraireAccesDistanceBox3, Verif.validerAccesDistance);
+
 
 
         /* =================================================================== */
@@ -99,61 +103,79 @@ window.executerExtractionBox3 = async function() {
     }
 };
 
+
 /* ========================================================================= */
 /* AUTO-LOADER BOX 3 : CHARGE LES COMMUNS PUIS LES MODULES BOX 3             */
 /* ========================================================================= */
 (async function() {
     let baseUrlBox3 = "";
-    let scripts = document.getElementsByTagName("script");
-    for (let s of scripts) {
-        if (s.src && s.src.includes("extract_main.js")) {
-            baseUrlBox3 = s.src.substring(0, s.src.lastIndexOf('/'));
-            break;
+    
+    if (document.currentScript && document.currentScript.src) {
+        baseUrlBox3 = document.currentScript.src.substring(0, document.currentScript.src.lastIndexOf('/'));
+    } else {
+        let scripts = document.getElementsByTagName("script");
+        for (let s of scripts) {
+            if (s.src && s.src.includes("box3/extract_main.js")) {
+                baseUrlBox3 = s.src.substring(0, s.src.lastIndexOf('/'));
+                break;
+            }
         }
     }
+    
     if (!baseUrlBox3) baseUrlBox3 = "http://127.0.0.1:5500/extraction/box3";
     
-    /* Déduire l'URL du dossier parent /extraction/ */
     let extractionUrl = baseUrlBox3.substring(0, baseUrlBox3.lastIndexOf('/'));
-    let rootUrl = extractionUrl.substring(0, extractionUrl.indexOf('/extraction'));
-    if (!rootUrl) rootUrl = "http://127.0.0.1:5500";
+    
+    let rootUrl = baseUrlBox3;
+    if (baseUrlBox3.includes("/extraction/box3")) {
+        rootUrl = baseUrlBox3.replace("/extraction/box3", "");
+    } else if (baseUrlBox3.includes("/box3")) {
+        rootUrl = baseUrlBox3.replace("/box3", "");
+    } else {
+        rootUrl = "http://127.0.0.1:5500";
+    }
 
     const chargerScript = async (url) => {
         return new Promise((resolve) => {
             let script = document.createElement('script');
             script.src = url + "?v=" + Date.now();
             script.onload = resolve;
-            script.onerror = () => { console.warn("Fichier non trouvé:", url); resolve(); }; 
+            script.onerror = () => { console.warn("Fichier introuvable :", url); resolve(); }; 
             document.head.appendChild(script);
         });
     };
 
-    /* 1. CHARGER LES FICHIERS COMMUNS DEPUIS LE DOSSIER PARENT */
     await chargerScript(extractionUrl + "/extract_ui.js");
     await chargerScript(extractionUrl + "/extract_utils.js");
-    await chargerScript(extractionUrl + "/extract_fin.js"); // Ajout du module final
+    await chargerScript(extractionUrl + "/extract_fin.js");
     await chargerScript(rootUrl + "/outil/verification.js");
 
-    /* 2. CHARGER CELLE DE BOX 3 */
+    if (window.ExtractVerification && typeof window.ExtractVerification.verifierEnvironnement === "function") {
+        let environnementOk = await window.ExtractVerification.verifierEnvironnement(false);
+        if (!environnementOk) return;
+    }
+
     await chargerScript(baseUrlBox3 + "/extract_verification.js"); 
 
-    /* 3. CHARGER LES MODULES LOCAUX BOX 3 */
     const modulesBox3 = [
         "extract_accueil.js",
-        "extract_wifi.js",
-        "extract_dhcp_dns.js",
-        "extract_routage.js",
-        "extract_natpat.js",
-        "extract_dyndns.js",
-        "extract_dmz.js",
-        "extract_parefeu.js"
+        "extract_wifi.js", 
+        //"extract_dhcp_dns.js",
+        //"extract_routage.js", 
+        //"extract_natpat.js", 
+        //"extract_dyndns.js",
+        //"extract_dmz.js", 
+        //"extract_parefeu.js",
+        //"extract_vpn_nomade.js",
+        //"extract_vpn_siteasite.js",
+        "extract_acces_distance.js"
+
     ];
 
     for (let mod of modulesBox3) {
         await chargerScript(baseUrlBox3 + "/" + mod);
     }
 
-    /* 4. Lancement */
     if (typeof window.executerExtractionBox3 === "function") {
         window.executerExtractionBox3();
     }

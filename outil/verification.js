@@ -59,9 +59,22 @@ window.ExtractVerification = {
                 return resolve(false); /* Arrêt immédiat */
             }
 
-            /* 3. Vérification de Connexion (Compatible Box 4, 6 et 7) */
+            /* ========================================================================= */
+            /* 3. VÉRIFICATION DE CONNEXION (Compatible Box 3, 4, 6 et 7)                */
+            /* ========================================================================= */
+            
+            /* Boutons standards (Box 4+) */
             let btnLogin = document.querySelector("#authentification_save_button, #login_save");
-            if (btnLogin && btnLogin.offsetParent !== null) {
+            /* Widget d'authentification GWT (Box 3 ancienne) - Sélecteur robuste ignorant le hash dynamique */
+            let loginBox3 = document.querySelector("div[class*='AuthenticationWidgetCss-authenticationWidget']");
+
+            let nonConnecte = false;
+            
+            /* Si l'un des éléments de login est présent ET visible à l'écran */
+            if (btnLogin && btnLogin.offsetParent !== null) nonConnecte = true;
+            if (loginBox3 && loginBox3.offsetParent !== null) nonConnecte = true;
+
+            if (nonConnecte) {
                 let btnHtml = `<button onclick="document.getElementById('lm-verif-overlay').remove();" style="background:#4caf50; color:white; padding:12px 20px; border:none; border-radius:8px; font-weight:bold; font-size:15px; width:100%; cursor:pointer; box-sizing:border-box; margin-top:20px;">🔒 Me connecter</button>`;
                 this.afficherPopup("⚠️ Connexion Requise", `Vous devez être connecté à la Livebox.<br>Identifiez-vous, puis relancez le favori.${btnHtml}`);
                 return resolve(false); /* Arrêt */

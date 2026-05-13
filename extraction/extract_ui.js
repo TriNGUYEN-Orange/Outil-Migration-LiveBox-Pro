@@ -1,7 +1,7 @@
 /* --- /box4/extract_ui.js --- */
 
 window.ExtractUI = {
-    AFFICHER_UI: false,
+    AFFICHER_UI: true,
 
     CSS: `
         #livebox-migration-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.50); z-index: 9999999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Segoe UI', Arial, sans-serif; color: #fff; backdrop-filter: blur(3px); }

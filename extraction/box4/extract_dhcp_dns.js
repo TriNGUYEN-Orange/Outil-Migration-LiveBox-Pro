@@ -19,6 +19,36 @@ window.extraireDhcpDns = async function(estRattrapage = false) {
         simulerClic("#homepage_wifi_configuration_hyperlink");
         await attendrePause(1000); 
     }
+
+    let popupFerme = false;
+    for (let i = 0; i < 15; i++) {
+        let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+        
+        if (popup && window.getComputedStyle(popup).display !== "none") {
+            let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+            
+            for (let btn of boutons) {
+                let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                
+                if (texteBtn === "oui" || titreBtn.startsWith("oui")) {
+                    btn.scrollIntoView({ block: "center" });
+                    btn.focus();
+                    
+                    ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                        btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                    });
+                    
+                    btn.click();
+                    popupFerme = true;
+                    await attendrePause(1500);
+                    break;
+                }
+            }
+        }
+        if (popupFerme) break;
+        await attendrePause(400); 
+    }
     
     await attendreElement("#network_dhcp_configuration_serverState_radioPanel", 10000);
 

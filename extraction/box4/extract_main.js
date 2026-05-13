@@ -106,67 +106,67 @@ window.executerExtractionBox4 = async function() {
 /* ========================================================================= */
 (async function() {
     let baseUrlBox4 = "";
-    let scripts = document.getElementsByTagName("script");
-    for (let s of scripts) {
-        if (s.src && s.src.includes("extract_main.js")) {
-            baseUrlBox4 = s.src.substring(0, s.src.lastIndexOf('/'));
-            break;
+    
+    /* Utilisation prioritaire de currentScript pour une precision absolue */
+    if (document.currentScript && document.currentScript.src) {
+        baseUrlBox4 = document.currentScript.src.substring(0, document.currentScript.src.lastIndexOf('/'));
+    } else {
+        let scripts = document.getElementsByTagName("script");
+        for (let s of scripts) {
+            /* Filtre strict sur le dossier box4 pour ignorer les fantomes */
+            if (s.src && s.src.includes("box4/extract_main.js")) {
+                baseUrlBox4 = s.src.substring(0, s.src.lastIndexOf('/'));
+                break;
+            }
         }
     }
+    
     if (!baseUrlBox4) baseUrlBox4 = "http://127.0.0.1:5500/extraction/box4";
     
-    /* Déduire l'URL du dossier parent /extraction/ pour les fichiers communs */
     let extractionUrl = baseUrlBox4.substring(0, baseUrlBox4.lastIndexOf('/'));
-    /* Déduire l'URL racine pour /outil/ */
-    let rootUrl = extractionUrl.substring(0, extractionUrl.indexOf('/extraction'));
-    if (!rootUrl) rootUrl = "http://127.0.0.1:5500";
+    
+    let rootUrl = baseUrlBox4;
+    if (baseUrlBox4.includes("/extraction/box4")) {
+        rootUrl = baseUrlBox4.replace("/extraction/box4", "");
+    } else if (baseUrlBox4.includes("/box4")) {
+        rootUrl = baseUrlBox4.replace("/box4", "");
+    } else {
+        rootUrl = "http://127.0.0.1:5500";
+    }
 
     const chargerScript = async (url) => {
         return new Promise((resolve) => {
             let script = document.createElement('script');
             script.src = url + "?v=" + Date.now();
             script.onload = resolve;
-            script.onerror = resolve; 
+            script.onerror = () => { console.warn("Fichier introuvable :", url); resolve(); }; 
             document.head.appendChild(script);
         });
     };
 
-    /* 1. Charger les fichiers communs depuis le dossier parent */
     await chargerScript(extractionUrl + "/extract_ui.js");
     await chargerScript(extractionUrl + "/extract_utils.js");
     await chargerScript(extractionUrl + "/extract_fin.js");
     await chargerScript(rootUrl + "/outil/verification.js"); 
 
-    /* 2. Charger les validateurs spécifiques à la Box 4 (dossier local) */
-    await chargerScript(baseUrlBox4 + "/extract_verification.js");
-
-    /* 3. Vérification de l'environnement */
     if (window.ExtractVerification && typeof window.ExtractVerification.verifierEnvironnement === "function") {
         let environnementOk = await window.ExtractVerification.verifierEnvironnement(false);
         if (!environnementOk) return;
     }
 
-    /* 4. Charger le reste des modules locaux */
+    await chargerScript(baseUrlBox4 + "/extract_verification.js");
+
     const modulesBox4 = [
-        "extract_accueil.js",
-        "extract_wifi.js",
-        "extract_dhcp_dns.js",
-        "extract_dyndns.js",
-        "extract_natpat.js",
-        "extract_routage.js",
-        "extract_dmz.js",
-        "extract_vpn_siteasite.js",
-        "extract_vpn_nomade.js",
-        "extract_pare-feu.js",
-        "extract_acces_distance.js",
-        "extract_airbox.js"
+        "extract_accueil.js", "extract_wifi.js", "extract_dhcp_dns.js",
+        "extract_dyndns.js", "extract_natpat.js", "extract_routage.js",
+        "extract_dmz.js", "extract_vpn_siteasite.js", "extract_vpn_nomade.js",
+        "extract_pare-feu.js", "extract_acces_distance.js", "extract_airbox.js"
     ];
 
     for (let mod of modulesBox4) {
         await chargerScript(baseUrlBox4 + "/" + mod);
     }
 
-    /* 5. Lancement */
     if (typeof window.executerExtractionBox4 === "function") {
         window.executerExtractionBox4();
     }

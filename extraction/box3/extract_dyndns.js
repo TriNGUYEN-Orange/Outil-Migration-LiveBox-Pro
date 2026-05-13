@@ -1,7 +1,7 @@
-/* --- /extraction/box3/extract_dyndns.js --- */
+/* --- /extraction/box3bis/extract_dyndns.js --- */
 
 window.extraireDyndnsBox3 = async function(estRattrapage = false) {
-    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, extraireTableau, CLE_STORAGE } = window;
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, CLE_STORAGE } = window;
 
     console.warn("=================================================");
     console.warn("[6/x] Extraction sur la page DynDNS (Box 3)...");
@@ -65,7 +65,7 @@ window.extraireDyndnsBox3 = async function(estRattrapage = false) {
     }
 
     /* ========================================================================= */
-    /* 3. EXTRACTION DE LA TABLE DES REGLES VIA EXTRAIRE_TABLEAU                 */
+    /* 3. EXTRACTION MANUELLE POUR RECUPERER L'ATTRIBUT TITLE                    */
     /* ========================================================================= */
     console.warn("Extraction de la table DynDNS en cours...");
     
@@ -76,24 +76,44 @@ window.extraireDyndnsBox3 = async function(estRattrapage = false) {
     configLivebox.dyndns["nom DNS"] = "";
     configLivebox.dyndns["nom de hôte complet"] = "";
 
-    /* Cartographie des colonnes basee sur le DOM Box 3 (8 colonnes au total) */
-    let configurationColonnesDynDNS = {
-        "Service": 0,
-        "Nom d'hôte/de domaine": 1,
-        "Identifiant": 2,
-        "Mot de passe": 3,
-        "Activer": 5
-    };
-    
-    let donneesTableauDynDNS = extraireTableau("#gwtActivityPanel table.widgetTable", configurationColonnesDynDNS);
-    
-    /* Filtrage : on ignore les lignes vides ou la ligne d'ajout ("Nouveau...") */
-    configLivebox.dyndns["DynDNS externes"] = donneesTableauDynDNS.filter(regle => {
-        let service = (regle["Service"] || "").trim().toLowerCase();
-        return service !== "" && service !== "nouveau" && service !== "nouveau...";
-    });
+    let dynDnsExtraits = [];
+    let lignes = document.querySelectorAll("#gwtActivityPanel table.widgetTable tbody tr");
 
-    console.warn("DynDNS extrait avec succes. Nombre d'entrees :", configLivebox.dyndns["DynDNS externes"].length);
+    for (let i = 0; i < lignes.length; i++) {
+        let cellules = lignes[i].querySelectorAll("td");
+        
+        /* On verifie qu'on a bien les colonnes attendues */
+        if (cellules.length >= 6) {
+            let service = (cellules[0].innerText || cellules[0].textContent).trim();
+            let serviceLower = service.toLowerCase();
+            
+            /* Filtrage strict : on ignore les lignes vides, l'en-tete "service" et "nouveau" */
+            if (service !== "" && serviceLower !== "service" && serviceLower !== "nouveau" && serviceLower !== "nouveau...") {
+                
+                /* Extraction intelligente du nom d'hote via l'attribut title s'il existe */
+                let elemNom = cellules[1].querySelector("[title]");
+                let nomComplet = elemNom ? elemNom.getAttribute("title").trim() : (cellules[1].innerText || cellules[1].textContent).trim();
+                
+                let identifiant = (cellules[2].innerText || cellules[2].textContent).trim();
+                let motDePasse = (cellules[3].innerText || cellules[3].textContent).trim();
+                
+                /* Lecture de la checkbox Activer (colonne index 5) */
+                let checkbox = cellules[5].querySelector("input[type='checkbox']");
+                let actif = checkbox ? checkbox.checked : false;
+                
+                dynDnsExtraits.push({
+                    "Service": service,
+                    "Nom d'hôte/de domaine": nomComplet,
+                    "Identifiant": identifiant,
+                    "Mot de passe": motDePasse,
+                    "Activer": actif
+                });
+            }
+        }
+    }
+
+    configLivebox.dyndns["DynDNS externes"] = dynDnsExtraits;
+    console.warn("DynDNS extrait avec succes. Nombre d'entrees :", dynDnsExtraits.length);
 
     /* ========================================================================= */
     /* 4. SAUVEGARDE ET FIN SILENCIEUSE                                          */

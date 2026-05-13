@@ -5,35 +5,56 @@
     console.warn("ROUTEUR EXTRACTION : Detection de la Livebox...");
     console.warn("=================================================");
 
+    /* 1. Nettoyage des scripts precedents pour eviter les conflits SPA */
+    let anciensScripts = document.querySelectorAll("script[src*='extract_main.js']");
+    anciensScripts.forEach(script => script.remove());
+
     /* Fonction utilitaire pour laisser le temps au DOM de se construire */
     const attendre = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     await attendre(1500);
 
-    let boxDetectee = "box4"; /* Par defaut, on suppose que c'est une Box 4 */
-
-    /* --- LOGIQUE DE DETECTION BOX 3 --- */
-    /* On cherche le menu deroulant du mode d'affichage specifique a la Box 3 */
-    let selects = document.querySelectorAll("select.gwt-ListBox, select[class*='HeaderCss-hwModeCb']");
+    let boxDetectee = "box4"; /* Valeur par defaut */
+    let estBox4 = false;
     let estBox3 = false;
 
-    for (let s of selects) {
-        let texteOptions = (s.innerText || "").toLowerCase();
-        if (texteOptions.includes("expert") || texteOptions.includes("standard") || texteOptions.includes("avance")) {
+    /* --- LOGIQUE DE DETECTION BOX 4 (MODERNE) --- */
+    
+    /* Critere 1 : Presence du widget de login (fourni par l'utilisateur) */
+    /* On utilise *= sur la classe pour eviter que ca casse si Orange modifie le hash GIB5... */
+    let loginModerne = document.querySelector("#authentification_widget div[class*='AuthenticationWidgetCss-inner']") || document.querySelector("#authentification_widget");
+    
+    /* Critere 2 : Presence de l'icone Internet sur l'accueil moderne */
+    let accueilModerne = document.querySelector("#homepage_myservices_iconInternet_image");
+
+    if (loginModerne || accueilModerne) {
+        estBox4 = true;
+    }
+
+    /* --- LOGIQUE DE DETECTION BOX 3 (ANCIENNE) --- */
+    if (!estBox4) {
+        /* On ne se fie plus a #gwtActivityPanel. Le menu gauche est exclusif a l'ancienne box */
+        if (document.querySelector("#gwtLeftMenuBar")) {
             estBox3 = true;
-            break;
+        } else {
+            let selects = document.querySelectorAll("select.gwt-ListBox, select[class*='HeaderCss-hwModeCb']");
+            for (let s of selects) {
+                let texteOptions = (s.innerText || "").toLowerCase();
+                if (texteOptions.includes("expert") || texteOptions.includes("standard") || texteOptions.includes("avance")) {
+                    estBox3 = true;
+                    break;
+                }
+            }
         }
     }
 
-    /* Securite supplementaire : presence de la div principale GWT */
-    if (!estBox3 && document.querySelector("#gwtActivityPanel")) {
-        estBox3 = true;
-    }
-
-    if (estBox3) {
-        boxDetectee = "box3";
-        console.warn("Livebox 3 Pro detectee !");
+    if (estBox4) {
+        boxDetectee = "box4"; /* Dossier box4 pour Box 4 ET Box 3 IHM moderne */
+        console.warn("Livebox Moderne (Box 4 ou Box 3 avec IHM recente) detectee avec certitude !");
+    } else if (estBox3) {
+        boxDetectee = "box3"; /* Dossier box3 pour l'ancienne IHM */
+        console.warn("Ancienne Livebox 3 Pro detectee !");
     } else {
-        console.warn("Livebox 4 Pro (ou interface moderne) detectee !");
+        console.warn("Aucun marqueur specifique trouve, essai par defaut sur Livebox Moderne...");
     }
 
     /* --- CHARGEMENT DU SCRIPT PRINCIPAL CORRESPONDANT --- */
@@ -41,12 +62,15 @@
     let baseUrl = "";
 
     /* Deduire l'URL de base dynamique a partir de l'emplacement de ce routeur */
-    let scripts = document.getElementsByTagName("script");
-    for (let s of scripts) {
-        if (s.src && s.src.includes("extract_router.js")) {
-            let urlRouteur = s.src;
-            baseUrl = urlRouteur.substring(0, urlRouteur.lastIndexOf('/'));
-            break;
+    if (document.currentScript && document.currentScript.src) {
+        baseUrl = document.currentScript.src.substring(0, document.currentScript.src.lastIndexOf('/'));
+    } else {
+        let scripts = document.getElementsByTagName("script");
+        for (let s of scripts) {
+            if (s.src && s.src.includes("extract_router.js")) {
+                baseUrl = s.src.substring(0, s.src.lastIndexOf('/'));
+                break;
+            }
         }
     }
 
