@@ -10,7 +10,7 @@ La procédure de correction est extrêmement simple en suivant ces 3 étapes.
 ### ÉTAPE 1 : IDENTIFIER LE FICHIER À MODIFIER
 En vous basant sur la barre de progression à l'écran ou l'erreur affichée dans la `Console (F12)`, trouvez le fichier correspondant au module en échec :
 
-* **Ancienne interface (Menu vertical à gauche) :** Dossier `/extraction/box3bis/`
+* **Ancienne interface (Login à droite) :** Dossier `/extraction/box3bis/`
 * **Interface moderne (Box 4 / Box 3 récente) :** Dossier `/extraction/box4/`
 
 *Exemples de fichiers :* `extract_wifi.js`, `extract_natpat.js`, `extract_vpn_nomade.js`, etc.
