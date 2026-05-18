@@ -1,85 +1,58 @@
-# 🚀 Outil de Migration LiveBox Pro
+# Outil Migration Livebox Pro
 
-Bienvenue sur l'**Outil de Migration LiveBox Pro** ! Ce projet a été conçu pour automatiser, simplifier la migration des paramètres de configuration entre une ancienne Livebox Pro (v3, v4) et une nouvelle (v6, v7).
+## Introduction
+Ce projet est un outil d'automatisation (sous forme de Bookmarklet / JavaScript injecté directement dans le navigateur) permettant d'extraire (Extraction) la configuration des routeurs Orange Livebox Pro. Toutes les données extraites sont automatiquement sauvegardées dans un fichier JSON (`livebox_migration_config.json`).
 
-Grâce à un système de **Bookmarklet** (favori intelligent) exécuté directement dans le navigateur, l'outil injecte vos configurations de manière transparente, sans nécessiter l'installation de logiciels tiers.
+L'objectif principal est d'aider les techniciens à sauvegarder rapidement l'ancienne configuration (WiFi, DHCP, NAT/PAT, VPN, DMZ...) afin de préparer la migration vers une nouvelle Livebox.
 
-🌐 **Lien direct vers l'outil :** [Outil Migration LiveBox Pro](https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro/ui_generateur/index.html)
-
----
-
-## ✨ Fonctionnalités Principales
-
-- **Automatisation complète :** Injection rapide des paramètres réseau.
-- **Support Multi-Modules :**
-  - 📡 Réseaux Wi-Fi
-  - 🛡️ Pare-feu (Firewall)
-  - 🌐 Accès à distance (Identifiants et Ports)
-  - 🔑 VPN Nomade (Création d'utilisateurs et de clés)
-  - 🏢 VPN Site à Site
-  - 📶 Airbox & Routage
-- **Sécurité et Interactivité (Push UI) :**
-  - Vérification en temps réel des règles de sécurité (mots de passe forts, noms valides).
-  - Pop-up interactives pour corriger les données à la volée.
-  - Bouclier anti-scroll pour protéger la page pendant l'injection.
-- **Rapport de Migration (Bilan) :** Génération automatique d'un tableau récapitulatif des modifications et téléchargement d'un rapport PDF détaillé en fin de processus.
+**Modèles de Livebox supportés :**
+* **Box 3 bis** (Ancienne interface GWT) - Terminé
+* **Box 3 moderne / Box 4** (Interface SPA commune) - Terminé
+* **Box 6 / Box 7** - En développement
 
 ---
 
-## 🛠️ Prérequis
+## Architecture du projet
 
-- Un navigateur web moderne (Chrome, Firefox, Edge, Safari).
-- L'affichage de la **barre de favoris** activé dans votre navigateur (`Ctrl+Maj+B` ou `Cmd+Maj+B`).
-- Accès à l'interface d'administration de la Livebox (généralement `http://192.168.1.1`).
-
----
-
-## 🚀 Installation & Utilisation
-
-L'outil ne nécessite **aucune installation sur votre ordinateur**. Tout se passe dans le navigateur.
-
-### Étape 1 : Obtenir le Bookmarklet
-1. Rendez-vous sur la [page d'accueil de l'outil](https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro/).
-2. Cliquez, maintenez, et **glissez le bouton orange "🖱️ Migration LiveBox (Glissez-moi)"** vers la barre de favoris de votre navigateur.
-
-### Étape 2 : Lancer la Migration
-1. Connectez-vous à l'interface de la **nouvelle Livebox** avec vos identifiants administrateur.
-2. Une fois connecté, **cliquez simplement sur le favori** que vous venez d'ajouter.
-3. L'outil prend le relais ! Suivez les indications à l'écran et laissez les différents modules configurer votre Box.
-
-### Étape 3 : Bilan
-1. À la fin de l'opération, un récapitulatif s'affiche.
-2. Cliquez sur **"📄 Télécharger le Rapport (PDF)"** pour conserver une trace des éléments modifiés (mots de passe, logins, etc.).
-
----
-
-## 📂 Architecture du Projet
-
-Le projet est construit sur une architecture **modulaire, découplée**. Le code n'est injecté dans la Livebox que lorsque cela est strictement nécessaire, ce qui garantit une exécution rapide et sans surcharge de la mémoire.
-
-L'architecture se divise en 3 couches principales :
+Le projet est organisé en modules pour faciliter la maintenance :
 
 ```text
-📁 Outil-Migration-LiveBox-Pro/
-│
-├── 1️⃣ COUCHE DE PRÉSENTATION (Générateur de Bookmarklet)
-│   ├── 📄 index.html              # Interface utilisateur (Wizard interactif & Bouton Drag & Drop)
-│   ├── 📄 view.css                # Feuille de style de la landing page
-│   ├── 📄 logic.js                # Logique locale : configure dynamiquement l'URL du Bookmarklet
-│   └── 📄 steps.js                # Contenu textuel et tutoriel d'utilisation
-│
-└── 2️⃣ COUCHE D'INJECTION (Hébergée sur GitHub Pages, exécutée sur la Livebox)
-    ├── 📁 push/
-    │   ├── 📄 push_utils.js       # Boîte à outils globale (Fonctions d'attente DOM, clics sécurisés)
-    │   │
-    │   └── 📁 box6/               # Implémentation spécifique au firmware Livebox 6 (et +)
-    │       │
-    │       ├── ⚙️ LE CŒUR (Orchestrateur & UI)
-    │       │   ├── push_main.js   # Script Maître : Gère la boucle (DRY), charge les modules actifs et gère l'état global.
-    │       │   ├── push_ui.js     # Interface Centralisée : Barre de progression, Pop-ups de validation, Écoute des modifications.
-    │       │   └── push_pdf.js    # Moteur de génération : Convertit le bilan final en document PDF téléchargeable.
-    │       │
-    │       └── 🧩 LES MODULES MÉTIERS (Features)
-    │           ├── push_acces_distance.js  # Script autonome : Navigation et remplissage de l'accès à distance.
-    │           ├── push_vpn_nomade.js      # Script autonome : Création itérative des utilisateurs VPN.
-    │           └── push_vpn_siteasite.js   # Script autonome : Configuration des tunnels IPsec.
+Outil-Migration-LiveBox-Pro
+ ┣ extraction/
+ ┃ ┣ extract_router.js       <-- (Point d'entrée) Détecte automatiquement le modèle de la Box
+ ┃ ┣ extract_utils.js        <-- Fonctions partagées (clics, attente DOM, lecture de tableaux...)
+ ┃ ┣ extract_ui.js           <-- Interface utilisateur (Barre de progression, Pop-ups)
+ ┃ ┣ extract_fin.js          <-- Génère le fichier JSON et force le téléchargement
+ ┃ ┣ box3bis/                <-- Code d'extraction spécifique à l'ancienne Box 3
+ ┃ ┃ ┣ extract_main.js       <-- Orchestrateur : lance les modules séquentiellement
+ ┃ ┃ ┣ extract_wifi.js       <-- Module WiFi
+ ┃ ┃ ┗ ...
+ ┃ ┣ box4/                   <-- Code d'extraction pour la Box 4 et Box 3 moderne
+ ┃ ┃ ┣ extract_main.js
+ ┃ ┃ ┗ ...
+ ┣ outil/
+ ┃ ┗ verification.js         <-- Vérification de l'environnement (IP, Login, bon outil...)
+ ┗ NOTES                     <-- Prises de notes et codes secrets du projet
+```
+
+---
+
+## Fonctionnement (Workflow)
+
+L'outil fonctionne entièrement côté client (Frontend) via la technique de Web Scraping (lecture du DOM).
+
+1. **Routage :** L'exécution commence par `extract_router.js` qui analyse le HTML pour identifier la Box actuelle.
+2. **Chargement :** Le routeur charge le `extract_main.js` correspondant, en nettoyant les anciens scripts si nécessaire (architecture SPA).
+3. **Vérification :** `verification.js` s'assure que l'utilisateur est bien sur `192.168.1.1` et authentifié.
+4. **Exécution séquentielle :** L'orchestrateur lance chaque module métier l'un après l'autre. L'état est conservé dans le `localStorage`.
+5. **Rattrapage (Failover) :** Si un module échoue (ex: latence réseau), le système effectue jusqu'à 2 tentatives de rattrapage en rechargeant la page.
+6. **Finalisation :** `extract_fin.js` regroupe les données du `localStorage` en un fichier `.json` et déclenche son téléchargement.
+
+---
+
+## Guide de Maintenance et de Mise à jour
+
+L'interface des Livebox étant amenée à évoluer, les sélecteurs CSS peuvent se casser au fil du temps. 
+Un guide complet a été rédigé pour vous expliquer comment réparer facilement le code à l'aide de l'Intelligence Artificielle.
+
+👉 **[Consulter le Guide de Maintenance (MAINTENANCE.md)](MAINTENANCE.md)**
