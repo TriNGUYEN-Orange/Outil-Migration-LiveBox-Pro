@@ -14,11 +14,11 @@
 
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réveil du système", nomEnv: "Wake-Up", fichier: "push_wakeup.js", fonction: "executerWakeUp" },
-        { actif: false, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
+        { actif: true, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
         { actif: false, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" },
-        { actif: false, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },
-        { actif: true, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },
-        { actif: true, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_nomade_avance.js", fonction: "executerVpnNomadeAvance" },
+        { actif: true, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },
+        { actif: false, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },
+        { actif: false, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_nomade_avance.js", fonction: "executerVpnNomadeAvance" },
         { actif: false, nomUI: "VPN Site à Site", nomEnv: "VPN Site à Site", fichier: "push_vpn_siteasite.js", fonction: "executerVpnSiteASite" },
         { actif: false, nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" },
         { actif: false, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" }
@@ -46,6 +46,18 @@
         if (typeof window.attendrePause === "function") await window.attendrePause(1500); 
     };
 
+    const normaliserRaisonErreur = (err) => {
+        const msg = (err && err.message) ? err.message : String(err || "Erreur inconnue");
+        const low = msg.toLowerCase();
+
+        if (low.includes("fichier introuvable")) return "Fichier module introuvable (IHM en évolution / chemin invalide)";
+        if (low.includes("introuvable") && low.includes("fonction")) return "Fonction du module introuvable (signature/nom changé)";
+        if (low.includes("timeout")) return "Timeout : élément IHM non trouvé à temps";
+        if (low.includes("failed to fetch")) return "Ressource inaccessible (réseau/URL)";
+        if (low.includes("cannot read") || low.includes("undefined") || low.includes("null")) return "Élément IHM absent ou structure DOM modifiée";
+        return msg;
+    };
+
     /* ==================================================================== */
     /* 🚀 LE MOTEUR PRINCIPAL DE MIGRATION                                  */
     /* ==================================================================== */
@@ -54,6 +66,11 @@
         try {
             await chargerModule('/push/box6/push_ui.js');
             const UI = window.PushUI;
+
+            // Reset journal technique à chaque run
+            if (UI && typeof UI.resetJournalTechnique === "function") {
+                UI.resetJournalTechnique();
+            }
 
             await chargerModule('/outil/verification.js');
             
@@ -82,15 +99,47 @@
             for (let i = 0; i < MODULES_A_EXECUTER.length; i++) {
                 let moduleCourant = MODULES_A_EXECUTER[i];
                 let etapeActuelle = i + 1;
+                const debutModule = Date.now();
 
                 if (UI && typeof UI.maj === "function") UI.maj(etapeActuelle, TOTAL_ETAPES, moduleCourant.nomUI);
-                await preparerEnvironnement(moduleCourant.nomEnv);
-                await chargerModule(`/push/box6/${moduleCourant.fichier}`);
-                
-                if (typeof window[moduleCourant.fonction] === "function") {
-                    await window[moduleCourant.fonction]();
-                } else {
-                    throw new Error(`Fonction window.${moduleCourant.fonction} introuvable.`);
+
+                try {
+                    await preparerEnvironnement(moduleCourant.nomEnv);
+                    await chargerModule(`/push/box6/${moduleCourant.fichier}`);
+                    
+                    if (typeof window[moduleCourant.fonction] === "function") {
+                        await window[moduleCourant.fonction]();
+
+                        // Succès module (journal technique)
+                        if (UI && typeof UI.enregistrerTechnique === "function") {
+                            UI.enregistrerTechnique({
+                                module: moduleCourant.nomUI,
+                                statut: "OK",
+                                raison: "Exécution terminée",
+                                dureeMs: Date.now() - debutModule
+                            });
+                        }
+                    } else {
+                        throw new Error(`Fonction window.${moduleCourant.fonction} introuvable.`);
+                    }
+                } catch (erreurModule) {
+                    // Échec module : on log et continue vers module suivant
+                    const raisonLisible = normaliserRaisonErreur(erreurModule);
+
+                    console.error(`❌ Module "${moduleCourant.nomUI}" en échec :`, erreurModule);
+
+                    if (UI && typeof UI.enregistrerTechnique === "function") {
+                        UI.enregistrerTechnique({
+                            module: moduleCourant.nomUI,
+                            statut: "KO",
+                            raison: raisonLisible,
+                            erreurBrute: (erreurModule && erreurModule.message) ? erreurModule.message : String(erreurModule),
+                            dureeMs: Date.now() - debutModule
+                        });
+                    }
+
+                    // Continue sans stopper tout le cycle
+                    continue;
                 }
             }
 
@@ -99,6 +148,11 @@
             if (UI && typeof UI.afficherResume === "function") {
                 await chargerModule('/push/box6/push_pdf.js');
                 await UI.afficherResume(); 
+            }
+
+            // Affiche le bilan technique (nouveau)
+            if (UI && typeof UI.afficherBilanTechnique === "function") {
+                await UI.afficherBilanTechnique();
             }
 
             if (UI && typeof UI.succes === "function") {

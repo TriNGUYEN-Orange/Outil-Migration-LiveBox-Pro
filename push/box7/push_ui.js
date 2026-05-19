@@ -93,10 +93,7 @@ window.PushUI = {
         }
     },
 
-    /* ================================================================================= */
-    /* 2. CẦU NỐI (PROXY) TỚI LỚP PUSH_VALIDATION                                        */
-    /* Đảm bảo tương thích 100% với code cũ của Box 6 và Box 7 không cần sửa file        */
-    /* ================================================================================= */
+    
     validerNom: function(nomActuel, typeNom, nomModule) {
         if (window.PushValidation) return window.PushValidation.validerNom(nomActuel, typeNom, nomModule);
         console.error("❌ [PushUI] Lớp PushValidation chưa được nạp!"); return nomActuel;
