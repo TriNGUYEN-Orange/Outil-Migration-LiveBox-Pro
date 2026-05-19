@@ -14,7 +14,7 @@
 
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réveil du système", nomEnv: "Wake-Up", fichier: "push_wakeup.js", fonction: "executerWakeUp" },
-        { actif: true, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
+        { actif: false, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
         { actif: false, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" },
         { actif: true, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },
         { actif: false, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },
