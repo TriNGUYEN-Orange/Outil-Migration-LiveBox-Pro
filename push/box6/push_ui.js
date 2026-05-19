@@ -2,24 +2,80 @@
 
 window.PushUI = {
     AFFICHER_ECRAN_NOIR: true, 
-    journalModifications: [], 
+    journalModifications: [],
+    journalTechnique: [],
 
     CSS: `
-        #livebox-migration-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.29); z-index: 9999999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Segoe UI', Arial, sans-serif; color: #fff; backdrop-filter: blur(3px); }
-        .lm-box { background: #fff; color: #333; padding: 40px; border-radius: 12px; width: 500px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 2px solid transparent; }
+        #livebox-migration-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.29);
+            z-index: 9999999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: 'Segoe UI', Arial, sans-serif; color: #fff;
+            backdrop-filter: blur(3px);
+            animation: lm-fade-in 220ms ease-out;
+        }
+
+        .lm-box {
+            background: #fff; color: #333; padding: 40px; border-radius: 12px; width: 500px; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 2px solid transparent;
+            animation: lm-pop-in 260ms ease-out;
+            transform-origin: center;
+        }
+
         .lm-box h2 { color: #ff7900; margin-top: 0; font-size: 24px; font-weight: bold; }
-        .lm-progress-bg { background: #f0f0f0; height: 22px; border-radius: 15px; margin: 25px 0; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); }
-        .lm-progress-bar { background: linear-gradient(90deg, #ff7900, #ff9e40); height: 100%; width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-        .lm-step-text { font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #555; }
-        .lm-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #ff7900; border-radius: 50%; width: 50px; height: 50px; animation: lm-spin 1s linear infinite; margin: 0 auto 20px auto; }
+
+        .lm-progress-bg {
+            background: #f0f0f0; height: 22px; border-radius: 15px; margin: 25px 0;
+            overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .lm-progress-bar {
+            background: linear-gradient(90deg, #ff7900, #ff9e40);
+            height: 100%; width: 0%;
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .lm-progress-bar::after {
+            content: "";
+            position: absolute; top: 0; left: -45%;
+            width: 35%; height: 100%;
+            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.45), rgba(255,255,255,0));
+            transform: skewX(-20deg);
+            animation: lm-shine 1.8s linear infinite;
+            pointer-events: none;
+        }
+
+        .lm-step-text {
+            font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #555;
+            transition: opacity 180ms ease, transform 180ms ease;
+            min-height: 42px;
+        }
+        .lm-step-text.lm-updating { opacity: 0.35; transform: translateY(2px); }
+
+        .lm-spinner {
+            border: 4px solid #f3f3f3; border-top: 4px solid #ff7900; border-radius: 50%;
+            width: 50px; height: 50px; animation: lm-spin 1s linear infinite;
+            margin: 0 auto 20px auto;
+        }
+
         .lm-table-res { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; color: #444; }
         .lm-table-res th { background: #f2f2f2; color: #666; padding: 10px; border: 1px solid #ddd; text-align: left; }
         .lm-table-res td { padding: 10px; border: 1px solid #ddd; text-align: left; vertical-align: top; }
         .lm-badge-mod { background: #fff3e6; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: #ff7900; border: 1px solid #ffe0b2; text-transform: uppercase; }
         .lm-val-old { color: #999; text-decoration: line-through; display: block; font-style: italic; }
         .lm-val-new { color: #2e7d32; font-weight: bold; display: block; margin-top: 2px; }
+
         @keyframes lm-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes lm-fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes lm-pop-in { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes lm-shine { from { left: -45%; } to { left: 120%; } }
     `,
+
 
     HTML: `
         <div class="lm-box" id="lm-box">
@@ -44,12 +100,149 @@ window.PushUI = {
         const pct = Math.round((etape / total) * 100);
         const barre = document.getElementById("lm-progress-bar");
         const texte = document.getElementById("lm-step-text");
-        if(barre) barre.style.width = pct + "%";
-        if(texte) texte.innerHTML = `Étape ${etape}/${total} : <br><span style="color:#ff7900">${nomModule}</span>`;
+
+        if (barre) barre.style.width = pct + "%";
+
+        if (texte) {
+            texte.classList.add("lm-updating");
+            setTimeout(() => {
+                texte.innerHTML = `Étape ${etape}/${total} : <br><span style="color:#ff7900">${nomModule}</span>`;
+                texte.classList.remove("lm-updating");
+            }, 90);
+        }
     },
+
 
     enregistrerModification: function(nomModule, element, ancienneValeur, nouvelleValeur) {
         this.journalModifications.push({ module: nomModule, element: element, ancien: ancienneValeur || "(vide)", nouveau: nouvelleValeur });
+    },
+
+    enregistrerTechnique: function(item) {
+        this.journalTechnique.push({
+            module: item.module || "Module inconnu",
+            statut: item.statut || "KO",
+            raison: item.raison || "",
+            erreurBrute: item.erreurBrute || "",
+            dureeMs: typeof item.dureeMs === "number" ? item.dureeMs : 0
+        });
+    },
+
+    resetJournalTechnique: function() {
+        this.journalTechnique = [];
+    },
+
+    afficherBilanTechnique: function() {
+        return new Promise((resolve) => {
+            if (!this.journalTechnique || this.journalTechnique.length === 0) { resolve(); return; }
+
+            const overlay = document.createElement("div");
+            overlay.id = "lm-tech-overlay";
+            overlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:2147483647; display:flex; align-items:center; justify-content:center; backdrop-filter: blur(4px);";
+
+            const boite = document.createElement("div");
+            boite.style.cssText = "background:#fff; padding:30px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); width:860px; max-width:96%; font-family:'Segoe UI', sans-serif; pointer-events:auto; border-top: 6px solid #607d8b;";
+
+            const nbKo = this.journalTechnique.filter(x => x.statut === "KO").length;
+            const nbOk = this.journalTechnique.filter(x => x.statut === "OK").length;
+
+            const h3 = document.createElement("h3");
+            h3.innerText = "🛠️ Bilan technique du Push";
+            h3.style.cssText = "color:#455a64; margin:0 0 10px 0; font-size:22px; text-align:center; font-weight:bold;";
+
+            const msg = document.createElement("p");
+            msg.innerHTML = `Résultat : <b style="color:#2e7d32;">${nbOk} OK</b> / <b style="color:#c62828;">${nbKo} KO</b>`;
+            msg.style.cssText = "font-size:14px; color:#666; text-align:center; margin-bottom:20px;";
+
+            // ✅ Nouveau message si au moins 1 KO
+            let blocSignalement = null;
+            if (nbKo > 0) {
+                blocSignalement = document.createElement("p");
+                blocSignalement.innerHTML = `🙏 Si vous êtes gentil, veuillez signaler le problème au .... <br>Sinon laissez tomber..`  ;
+                blocSignalement.style.cssText = `
+                    font-size:13px;
+                    color:#b71c1c;
+                    background:#ffebee;
+                    border:1px solid #ffcdd2;
+                    padding:10px 12px;
+                    border-radius:6px;
+                    margin:10px 0 15px 0;
+                    text-align:center;
+                `;
+            }
+
+            const conteneurTable = document.createElement("div");
+            conteneurTable.style.cssText = "max-height:380px; overflow-y:auto; border: 1px solid #eee; border-radius:8px; background:#fff;";
+
+            let htmlTable = `
+                <table class="lm-table-res">
+                    <thead>
+                        <tr>
+                            <th style="width: 170px;">Module</th>
+                            <th style="width: 80px;">Statut</th>
+                            <th>Raison</th>
+                            <th style="width: 90px;">Durée</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            this.journalTechnique.forEach(item => {
+                const badge = item.statut === "OK"
+                    ? `<span style="background:#e8f5e9;color:#2e7d32;padding:3px 8px;border-radius:4px;font-weight:bold;">OK</span>`
+                    : `<span style="background:#ffebee;color:#c62828;padding:3px 8px;border-radius:4px;font-weight:bold;">KO</span>`;
+
+                // ✅ FIX: éviter duplication raison/erreurBrute
+                const raison = (() => {
+                    const r = (item.raison || "").trim();
+                    const e = (item.erreurBrute || "").trim();
+
+                    if (!e) return r;
+                    if (!r) return `<span style="font-size:11px;color:#999;">${e}</span>`;
+                    if (r.toLowerCase() === e.toLowerCase()) return r;
+
+                    return `${r}<br><span style="font-size:11px;color:#999;">${e}</span>`;
+                })();
+
+                htmlTable += `
+                    <tr>
+                        <td><span class="lm-badge-mod">${item.module}</span></td>
+                        <td>${badge}</td>
+                        <td style="font-size:13px; line-height:1.35;">${raison || ""}</td>
+                        <td>${item.dureeMs} ms</td>
+                    </tr>
+                `;
+            });
+
+            htmlTable += `</tbody></table>`;
+            conteneurTable.innerHTML = htmlTable;
+
+            const btnDiv = document.createElement("div");
+            btnDiv.style.cssText = "display:flex; justify-content:center; align-items:center; margin-top:25px;";
+
+            const btnOk = document.createElement("button");
+            btnOk.innerText = "Fermer";
+            btnOk.style.cssText = "padding:12px 25px; border:none; border-radius:6px; cursor:pointer; background:#4caf50; color:white; font-weight:bold; font-size:15px; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3); transition: transform 0.2s;";
+            btnOk.onmouseover = () => btnOk.style.transform = "scale(1.03)";
+            btnOk.onmouseout = () => btnOk.style.transform = "scale(1)";
+            btnOk.onclick = () => {
+                document.body.removeChild(overlay);
+                resolve();
+            };
+
+            btnDiv.append(btnOk);
+
+
+            if (blocSignalement) {
+                boite.append(h3, msg, blocSignalement, conteneurTable, btnDiv);
+            } else {
+                boite.append(h3, msg, conteneurTable, btnDiv);
+            }
+
+            overlay.appendChild(boite);
+
+            const styleExtra = document.createElement('style'); styleExtra.innerHTML = this.CSS; document.head.appendChild(styleExtra);
+            document.body.appendChild(overlay);
+        });
     },
 
     afficherResume: function() {
@@ -189,12 +382,7 @@ window.PushUI = {
         });
     },
 
-    /* =========================================================
-       🌟 NOUVEAU : FONCTIONS MANQUANTES AJOUTÉES ICI
-       ========================================================= */
     succes: function() {
-        /* On supprime l'écran noir de chargement une fois tout terminé
-           pour rendre le contrôle total à l'utilisateur ! */
         const overlayNoir = document.getElementById("livebox-migration-overlay");
         if (overlayNoir) {
             document.body.removeChild(overlayNoir);

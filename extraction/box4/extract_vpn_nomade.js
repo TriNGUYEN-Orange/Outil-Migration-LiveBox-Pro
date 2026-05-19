@@ -19,7 +19,7 @@ window.extraireVpnNomade = async function(estRattrapage = false) {
         await attendrePause(1000); 
     }
 
-    /* 🛠️ Fonction de lecture ultra-sécurisée anti-crash */
+    /* Fonction de lecture ultra-sécurisée anti-crash */
     const lireSecuriseNomade = (selecteur) => {
         let el = document.querySelector(selecteur);
         if (!el) return "";
@@ -30,7 +30,7 @@ window.extraireVpnNomade = async function(estRattrapage = false) {
         return val ? String(val).trim() : "";
     };
 
-    /* 🛡️ REFACTOR : Algorithme intelligent pour trouver les champs par leur texte (Label) */
+    /* Algorithme intelligent pour trouver les champs par leur texte (Label) */
     const lireAvanceNomade = (motCle, blocParent, balise = "select") => {
         /* On cherche d'abord par le titre (si Orange a bien fait son travail) */
         let el = blocParent.querySelector(balise + "[title*='" + motCle + "']");

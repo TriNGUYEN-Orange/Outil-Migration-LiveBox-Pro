@@ -1,31 +1,37 @@
-const CODE_PUSH_PAREFEU = `
-    /* --- ÉTAPE : CONFIGURATION DU PARE-FEU --- */
+/* --- /push/box7/push_parefeu.js --- */
+
+window.executerParefeu = async function() {
     console.log("⏳ Application des paramètres du Pare-feu...");
+
+    /* Récupération des données globales de migration */
+    let configJSON = localStorage.getItem("livebox_migration_config");
+    if (!configJSON) return;
+    let configLivebox = JSON.parse(configJSON);
 
     if (configLivebox && configLivebox.parefeu) {
         
-        let btnAvance = await attendreElement("#sah_footer .icon-advanced", 10000);
+        let btnAvance = await window.attendreElement("#sah_footer .icon-advanced", 10000);
         
         if (btnAvance) {
-            cliquerBouton("#sah_footer .icon-advanced");
-            await attendrePause(800); 
+            window.cliquerBouton("#sah_footer .icon-advanced");
+            await window.attendrePause(800); 
             
-            let btnPareFeu = await attendreElement("#networkFirewall", 10000);
+            let btnPareFeu = await window.attendreElement("#networkFirewall", 10000);
             if (btnPareFeu) {
                 btnPareFeu.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                cliquerBouton("#networkFirewall");
+                window.cliquerBouton("#networkFirewall");
                 
-                let iframe = await attendreElement("#iframeapp", 10000);
+                let iframe = await window.attendreElement("#iframeapp", 10000);
                 if (iframe) {
                     let docIframe = iframe.contentDocument || iframe.contentWindow.document;
                     
-                    /* 🚨 Ý TƯỞNG CỦA BẠN: Chờ cái hộp chứa tất cả các nút Radio (div#security) tải xong hoàn toàn */
+                    /* IDÉE : Attendre que le conteneur des boutons radio (div#security) soit complètement chargé[cite: 19] */
                     console.log("⏳ Attente du chargement complet du bloc Pare-feu...");
-                    let conteneurSecurity = await attendreElementDansDoc(docIframe, "div#security", 10000);
+                    let conteneurSecurity = await window.attendreElementDansDoc(docIframe, "div#security", 10000);
                     
                     if (conteneurSecurity) {
-                        /* Nghỉ thêm 0.5s để chắc chắn Ractive.js đã sẵn sàng nhận lệnh click */
-                        await attendrePause(500); 
+                        /* Pause de 0.5s pour s'assurer que Ractive.js est prêt à intercepter le clic[cite: 19] */
+                        await window.attendrePause(500); 
                         
                         let niveauVoulu = (configLivebox.parefeu["niveau de protection"] || "moyen").toLowerCase();
                         let idCible = "#security_Medium"; 
@@ -40,22 +46,27 @@ const CODE_PUSH_PAREFEU = `
                         if (radioCible && !radioCible.checked) {
                             console.log("👉 Application du niveau de pare-feu : " + niveauVoulu);
                             
-                            /* 🚨 BÍ QUYẾT: Click vào cái thẻ LABEL (chữ) thay vì ép click vào cái nút tròn Radio */
+                            /* 🚨 ASTUCE : Cliquer sur la balise LABEL au lieu du bouton radio lui-même[cite: 19] */
                             let nomId = idCible.replace('#', '');
                             let labelCible = docIframe.querySelector('label[for="' + nomId + '"]');
                             
                             if (labelCible) {
-                                cliquerPur(labelCible);
+                                window.cliquerPur(labelCible);
                             } else {
-                                cliquerPur(radioCible); /* Phương án dự phòng */
+                                window.cliquerPur(radioCible); /* Solution de repli[cite: 19] */
                             }
                             
-                            await attendrePause(800); /* Đợi giao diện ghi nhận thao tác bấm */
+                            await window.attendrePause(800); /* Attendre que l'interface enregistre le clic[cite: 19] */
                             
                             let btnSave = docIframe.querySelector("#submit");
                             if (btnSave) {
-                                cliquerPur(btnSave);
-                                await attendreFinSauvegarde(docIframe);
+                                window.cliquerPur(btnSave);
+                                await window.attendreFinSauvegarde(docIframe);
+                                
+                                /* Enregistrement de l'action pour le Bilan UI (Optionnel) */
+                                if (window.PushUI && typeof window.PushUI.enregistrerModification === "function") {
+                                    window.PushUI.enregistrerModification("Pare-feu", "Niveau de protection", "Ancien Niveau", niveauVoulu);
+                                }
                             }
                         } else {
                             console.log("✅ Le niveau de pare-feu est déjà sur : " + niveauVoulu);
@@ -66,6 +77,6 @@ const CODE_PUSH_PAREFEU = `
                 }
             }
         }
-        await retournerAccueil();
+        await window.retournerAccueil();
     }
-`;
+};

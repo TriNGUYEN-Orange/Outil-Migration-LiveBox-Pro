@@ -62,7 +62,7 @@ window.extraireVpnSite = async function() {
                     try {
                         vpnConfig["activé"] = lireEtat(blocFormulaireVpn + " > div:nth-child(1)");
                         
-                        /* 🛡️ REFACTOR : Remplacement des guillemets imbriqués par des *= pour éviter tout crash de syntaxe */
+                        /* Remplacement des guillemets imbriqués par des *= pour éviter tout crash de syntaxe */
                         let valNom = lireSecurise("input[title*='nom de la connexion VPN']");
                         vpnConfig["nom VPN"] = valNom ? valNom : lireSecurise(blocFormulaireVpn + " > div:nth-child(2) input");
 

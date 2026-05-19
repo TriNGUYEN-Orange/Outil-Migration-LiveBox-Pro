@@ -1,7 +1,6 @@
-// Ce fichier contient uniquement les données (textes, étapes) pour la migration.
+/* Ce fichier contient uniquement les donnees pour la migration. */
 
 const MIGRATION_CONTENT = {
-    // Les étapes génériques partagées
     outils: {
         titre: "Étape 1 : Préparez vos outils 🛠️",
         desc: "Affichez la barre de favoris de votre navigateur en appuyant sur <b>Ctrl+Maj+B</b> (ou <b>Cmd+Maj+B</b> sur Mac).<br><br>👉 <b>Glissez-déposez</b> les deux boutons ci-dessous directement dans cette barre d'outils :"
@@ -10,7 +9,7 @@ const MIGRATION_CONTENT = {
         titre: "Étape 2 : Sauvegarde de l'ancienne box 💾",
         desc: `
             <ol style="margin-top: 10px; padding-left: 20px; line-height: 1.6;">
-                <li>Ouvrez l'interface de votre ancienne box : <a href="http://192.168.1.1" target="_blank" style="color: #ff7900; font-weight: bold;">http://192.168.1.1</a></li>
+                <li>Ouvrez l'interface de votre <b>ancienne box</b> : <a href="http://192.168.1.1" target="_blank" style="color: #ff7900; font-weight: bold;">http://192.168.1.1</a></li>
                 <li>Connectez-vous avec votre mot de passe administrateur.</li>
                 <li>Cliquez sur votre nouveau favori <b>⚙️ Extraction</b> et laissez l'outil aspirer vos paramètres !</li>
             </ol>
@@ -21,7 +20,7 @@ const MIGRATION_CONTENT = {
         desc: `
             <ol style="margin-top: 10px; padding-left: 20px; line-height: 1.6;">
                 <li>Débranchez complètement votre ancienne Livebox.</li>
-                <li>Installez et allumez votre nouvelle Livebox.</li>
+                <li>Installez et allumez votre <b>nouvelle Livebox</b>.</li>
                 <li>Patientez jusqu'à ce que les voyants indiquent qu'elle est bien connectée à Internet.</li>
             </ol>
         `
@@ -37,7 +36,6 @@ const MIGRATION_CONTENT = {
         `
     },
     
-    // Fonction pour générer le bloc HTML des Bookmarklets
     genererBookmarkletsHTML: function(codeExtract, codeApply) {
         return `
             <div class="conteneur-bookmarklet" style="display: flex; gap: 15px; justify-content: center; margin-top: 15px; padding: 20px; background-color: #fff9f0; border-radius: 10px; border: 2px dashed #ff7900;">
