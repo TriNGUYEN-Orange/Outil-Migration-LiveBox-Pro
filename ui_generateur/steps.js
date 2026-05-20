@@ -9,6 +9,7 @@ const MIGRATION_CONTENT = {
         titre: "Étape 2 : Sauvegarde de l'ancienne box 💾",
         desc: `
             <ol style="margin-top: 10px; padding-left: 20px; line-height: 1.6;">
+                📝 <b>Note :</b> Cet outil fonctionne sur <b>Livebox Pro V3</b> et <b>Livebox Pro V4</b>
                 <li>Ouvrez l'interface de votre <b>ancienne box</b> : <a href="http://192.168.1.1" target="_blank" style="color: #ff7900; font-weight: bold;">http://192.168.1.1</a></li>
                 <li>Connectez-vous avec votre mot de passe administrateur.</li>
                 <li>Cliquez sur votre nouveau favori <b>⚙️ Extraction</b> et laissez l'outil aspirer vos paramètres !</li>
@@ -29,6 +30,7 @@ const MIGRATION_CONTENT = {
         titre: "Étape 4 : Restauration magique ✨",
         desc: `
             <ol style="margin-top: 10px; padding-left: 20px; line-height: 1.6;">
+                📝 <b>Note :</b> Cet outil fonctionne sur <b>Livebox 6</b> (Livebox 7 est en cours de développement)
                 <li>Allez sur la nouvelle interface : <a href="http://192.168.1.1" target="_blank" style="color: #ff7900; font-weight: bold;">http://192.168.1.1</a> et connectez-vous.</li>
                 <li>Cliquez sur votre favori <b>🚀 Application</b>.</li>
                 <li>Détendez-vous pendant que tous vos paramètres sont restaurés automatiquement !</li>
