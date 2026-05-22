@@ -4317,18 +4317,18 @@ window.executerAirbox = async function() {
     /* =========================================
        ⚙️ CONFIGURATION DU COMPORTEMENT
        ========================================= */
-    const BASE_URL = 'http://127.0.0.1:5500';
+    const BASE_URL = 'http://127.0.0.1:5500/';
 
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réveil du système", nomEnv: "Wake-Up", fichier: "push_wakeup.js", fonction: "executerWakeUp" },
         { actif: true, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
-        { actif: false, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" },
+        { actif: true, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" },
         { actif: true, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },
-        { actif: false, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },
-        { actif: false, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_nomade_avance.js", fonction: "executerVpnNomadeAvance" },
-        { actif: false, nomUI: "VPN Site à Site", nomEnv: "VPN Site à Site", fichier: "push_vpn_siteasite.js", fonction: "executerVpnSiteASite" },
-        { actif: false, nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" },
-        { actif: false, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" }
+        { actif: true, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },
+        { actif: true, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_nomade_avance.js", fonction: "executerVpnNomadeAvance" },
+        { actif: true, nomUI: "VPN Site à Site", nomEnv: "VPN Site à Site", fichier: "push_vpn_siteasite.js", fonction: "executerVpnSiteASite" },
+        { actif: true, nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" },
+        { actif: true, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" }
     ];
 
     const MODULES_A_EXECUTER = LISTE_MODULES.filter(mod => mod.actif);
@@ -7264,18 +7264,18 @@ const CODE_PUSH_DHCP = `
         return;
     }
 
-    const BASE_URL = 'http://127.0.0.1:5500';
+    const BASE_URL = 'http://127.0.0.1:5500/';
 
     /* LISTE DYNAMIQUE DES MODULES  */
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" },
-        { actif: false, nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" },  //ok
-        { actif: false, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },  //ok
+        { actif: true, nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" },  //ok
+        { actif: true, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },  //ok
         
         /* Les modules ci-dessous sont désactivés (false) en attendant d'être développés pour la Box 7 */
-        { actif: false, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" }, //ok
-        { actif: false, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" }, //ok
-        { actif: false, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },   //ok
+        { actif: true, nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" }, //ok
+        { actif: true, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" }, //ok
+        { actif: true, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },   //ok
         { actif: true, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_avance.js", fonction: "executerVpnNomadeAvance" }, //ok
         { actif: false, nomUI: "VPN Site à Site", nomEnv: "VPN Site à Site", fichier: "push_vpn_siteasite.js", fonction: "executerVpnSiteASite" }
     ];
@@ -9259,7 +9259,7 @@ window.PushValidation = {
         <div class="titre-site">Assistance Pro</div>
     </header>
 
-    <h1>Tool Relocaliser InterBoxes (TRI)</h1>
+    <h1>Migration Livebox Pro</h1>
 
     <div id="pageInstructions" class="active">
         <div id="contenuInstructions">
@@ -9395,6 +9395,7 @@ const MIGRATION_CONTENT = {
         titre: "Étape 2 : Sauvegarde de l'ancienne box 💾",
         desc: `
             <ol style="margin-top: 10px; padding-left: 20px; line-height: 1.6;">
+                📝 <b>Note :</b> Cet outil fonctionne sur <b>Livebox Pro V3</b> et <b>Livebox Pro V4</b>
                 <li>Ouvrez l'interface de votre <b>ancienne box</b> : <a href="http://192.168.1.1" target="_blank" style="color: #ff7900; font-weight: bold;">http://192.168.1.1</a></li>
                 <li>Connectez-vous avec votre mot de passe administrateur.</li>
                 <li>Cliquez sur votre nouveau favori <b>⚙️ Extraction</b> et laissez l'outil aspirer vos paramètres !</li>
@@ -9415,6 +9416,7 @@ const MIGRATION_CONTENT = {
         titre: "Étape 4 : Restauration magique ✨",
         desc: `
             <ol style="margin-top: 10px; padding-left: 20px; line-height: 1.6;">
+                📝 <b>Note :</b> Cet outil fonctionne sur <b>Livebox 6</b> (Livebox 7 est en cours de développement)
                 <li>Allez sur la nouvelle interface : <a href="http://192.168.1.1" target="_blank" style="color: #ff7900; font-weight: bold;">http://192.168.1.1</a> et connectez-vous.</li>
                 <li>Cliquez sur votre favori <b>🚀 Application</b>.</li>
                 <li>Détendez-vous pendant que tous vos paramètres sont restaurés automatiquement !</li>
