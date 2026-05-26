@@ -8,10 +8,7 @@ La procédure de correction est extrêmement simple en suivant ces 3 étapes.
 ---
 
 ### ÉTAPE 1 : IDENTIFIER LE FICHIER À MODIFIER
-En vous basant sur la barre de progression à l'écran ou l'erreur affichée dans la `Console (F12)`, trouvez le fichier correspondant au module en échec :
-
-* **Ancienne interface (Login à droite) :** Dossier `/extraction/box3bis/`
-* **Interface moderne (Box 4 / Box 3 récente) :** Dossier `/extraction/box4/`
+En vous basant sur la barre de progression à l'écran ou l'erreur affichée dans la `Bilan technique (Box 6, Box 77)`, trouvez le fichier correspondant au module en échec.
 
 *Exemples de fichiers :* `extract_wifi.js`, `extract_natpat.js`, `extract_vpn_nomade.js`, etc.
 
@@ -20,7 +17,7 @@ En vous basant sur la barre de progression à l'écran ou l'erreur affichée dan
 ### ÉTAPE 2 : RÉCUPÉRER LES INFORMATIONS DE LA NOUVELLE IHM
 1. Ouvrez l'interface de la Livebox Pro manuellement et naviguez jusqu'à la page qui pose problème.
 2. Appuyez sur `F12` -> Allez dans l'onglet **Elements**.
-3. Utilisez l'outil d'inspection du navigateur pour cibler la balise HTML (input, select, div, bouton) contenant la donnée manquante.
+3. Utilisez **l'outil d'inspection du navigateur** (ctrl + shift + c) pour cibler la balise HTML (input, select, div, bouton) contenant la donnée manquante.
 4. Prenez **une capture d'écran** de cette zone (en incluant impérativement l'arborescence DOM visible dans l'onglet Elements).
 5. *Astuce :* Faites un clic droit sur la balise HTML -> **Copy** -> **Copy selector** pour obtenir le chemin exact.
 
@@ -38,7 +35,7 @@ Ouvrez Gemini, ChatGPT, ou Claude, et collez le Prompt ci-dessous en y joignant 
 ---
 
 ### RÈGLE D'OR POUR LES SÉLECTEURS (LES PIÈGES DE GWT)
-L'interface d'Orange utilise le framework Google Web Toolkit (GWT), qui génère des classes avec des chaînes de hachage dynamiques (dynamic hash) (Par exemple : `GHIUE4XBJM-fr-orange...`). 
+L'interface admin utilise le framework Google Web Toolkit (GWT), qui génère des classes avec des chaînes de hachage dynamiques (dynamic hash) (Par exemple : `GHIUE4XBJM-fr-orange...`). 
 
 Pour que votre code survive aux futurs redémarrages de la Box ou aux mises à jour mineures, **ne figez jamais un hash**.
 
