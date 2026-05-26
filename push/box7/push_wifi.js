@@ -217,9 +217,11 @@ window.executerWifi = async function() {
                             } else {
                                 console.warn("⚠️ Champ SSID 5 GHz introuvable (#wifi_private_ssid). Étape 5 GHz ignorée.");
                             }
+
                         } else {
                             console.warn("⚠️ Lien configuration 5 GHz introuvable (#wifi_accesspoint5_link_txt / #wifi_accesspoint5_link). Étape 5 GHz ignorée.");
                         }
+
                     } else {
                         throw new Error("Composants Wi-Fi 2.4 GHz introuvables dans l'iframe (#wifi_accesspoint24 / #wifi_accesspointboth).");
                     }
