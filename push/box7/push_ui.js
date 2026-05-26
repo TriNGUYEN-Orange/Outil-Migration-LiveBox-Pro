@@ -177,7 +177,7 @@ window.PushUI = {
             let blocSignalement = null;
             if (nbKo > 0) {
                 blocSignalement = document.createElement("p");
-                blocSignalement.innerHTML = `🙏 Si vous êtes gentil, veuillez signaler le problème au .... <br>Sinon laissez tomber..`;
+                blocSignalement.innerHTML = `🙏 Si vous êtes gentil, veuillez signaler le problème à Tri !!!`;
                 blocSignalement.style.cssText = `
                     font-size:13px;
                     color:#b71c1c;
