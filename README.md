@@ -13,6 +13,19 @@ L'objectif principal est d'aider les techniciens à sauvegarder rapidement l'anc
 
 ---
 
+## Fonctionnement (Workflow)
+
+L'outil fonctionne entièrement côté client (Frontend) via la technique de Web Scraping (lecture du DOM).
+
+1. **Routage :** L'exécution commence par `extract_router.js` qui analyse le HTML pour identifier la Box actuelle.
+2. **Chargement :** Le routeur charge le `extract_main.js` correspondant, en nettoyant les anciens scripts si nécessaire (architecture SPA).
+3. **Vérification :** `verification.js` s'assure que l'utilisateur est bien sur `192.168.1.1` et authentifié.
+4. **Exécution séquentielle :** L'orchestrateur lance chaque module métier l'un après l'autre. L'état est conservé dans le `localStorage`.
+5. **Rattrapage (Failover) :** Si un module échoue (ex: latence réseau), le système effectue jusqu'à 2 tentatives de rattrapage en rechargeant la page.
+6. **Finalisation :** `extract_fin.js` regroupe les données du `localStorage` en un fichier `.json` et déclenche son téléchargement.
+
+---
+
 ## Guide de Maintenance et de Mise à jour
 
 L'interface des Livebox Pro 6, 77 est toujours en cours de développement, il faut donc modifier l'outil s'il y a un changement de côté Sagemcom.
