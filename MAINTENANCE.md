@@ -23,14 +23,64 @@ En vous basant sur la barre de progression à l'écran ou l'erreur affichée dan
 
 ---
 
-### ÉTAPE 3 : UTILISER L'IA POUR METTRE À JOUR LE SÉLECTEUR
-Ouvrez Gemini, ChatGPT, ou Claude, et collez le Prompt ci-dessous en y joignant l'ancien code source et votre capture d'écran :
+### ÉTAPE 3 : UTILISER L'IA POUR METTRE À JOUR LES SÉLECTEURS (VERSION ROBUSTE)
 
-> **MODÈLE DE PROMPT POUR L'IA (À COPIER/COLLER) :**
-> "Voici l'ancien fichier JavaScript utilisé pour extraire la configuration de la Livebox Pro : `[Collez_Ou_Joignez_Le_Fichier_.js_Ici]`.
-> Orange vient de mettre à jour l'interface (IHM). Je te joins une capture d'écran de la nouvelle interface ainsi que le code DOM actuel.
-> Peux-tu trouver ce qui a changé et mettre à jour les selectors (dans la fonction `lireChampGWT` ou `document.querySelector`) pour qu'ils correspondent à la nouvelle interface ?
-> Règle stricte : Garde la logique et la structure de l'ancienne fonction intactes, modifie uniquement les chaînes de caractères des selectors erronés."
+Copiez/collez **exactement** le prompt ci-dessous dans Gemini / ChatGPT / Claude, puis joignez :
+1. le fichier `.js` concerné (version actuelle),
+2. une capture DevTools (onglet **Elements** avec DOM visible),
+3. si possible le `outerHTML` du bloc concerné.
+
+> **PROMPT IA PRÊT À L’EMPLOI (COPIER/COLLER)**
+>
+> Tu es un expert JavaScript/DOM en maintenance corrective.
+> 
+> Je te fournis :
+> - un fichier JS d’extraction Livebox Pro,
+> - une capture de la nouvelle IHM Orange,
+> - éventuellement un extrait DOM (`outerHTML`).
+>
+> ## Objectif
+> Corriger uniquement les sélecteurs cassés pour rétablir l’extraction.
+>
+> ## Contraintes strictes (obligatoires)
+> 1. **Ne pas modifier la logique métier** (ordre des étapes, conditions, structure des fonctions).
+> 2. **Ne pas renommer les fonctions/variables** existantes.
+> 3. **Ne pas changer la structure JSON de sortie**.
+> 4. **Ne modifier que** :
+>    - chaînes de sélecteurs (`querySelector`, `querySelectorAll`, `lireChampGWT`, etc.),
+>    - fallback selectors (ancien + nouveau),
+>    - timeout/retry uniquement si nécessaire et minimal.
+> 5. Si un bloc est optionnel et introuvable, **ne pas bloquer tout le script** (préférer `console.warn` à `throw` uniquement pour ce bloc optionnel).
+> 6. Conserver la compatibilité avec l’ancienne IHM si possible (fallback).
+>
+> ## Format de réponse attendu (obligatoire)
+> Réponds en 4 sections :
+>
+> ### 1) Diagnostic
+> - Liste précise des sélecteurs obsolètes détectés.
+> - Explication courte de la cause (ID changé, structure DOM déplacée, iframe, etc.).
+>
+> ### 2) Patch minimal (diff)
+> - Fournis un **diff unifié** (avant/après) ou blocs “REMPLACER PAR”.
+> - Ne montrer **que les lignes modifiées**.
+>
+> ### 3) Code final prêt à coller
+> - Redonne la **fonction complète corrigée** (pas tout le projet), directement copiable.
+> - Garantis qu’il n’y a **aucune erreur de syntaxe**.
+>
+> ### 4) Plan de validation
+> - Étapes de test manuel (console + UI).
+> - Résultat attendu.
+> - Cas de repli si un élément reste introuvable.
+>
+> ## Vérifications automatiques à faire avant de répondre
+> - Vérifier parenthèses/accolades/points-virgules.
+> - Vérifier que chaque sélecteur proposé existe dans le DOM fourni.
+> - Vérifier qu’aucune autre partie non demandée n’a été modifiée.
+> - Vérifier que la fonction reste exécutable telle quelle.
+>
+> Si une information manque, pose des questions **très ciblées** (max 3), sinon fais la meilleure correction possible avec hypothèses explicites.
+
 
 ---
 
