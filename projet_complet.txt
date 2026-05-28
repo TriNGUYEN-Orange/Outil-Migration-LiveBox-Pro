@@ -8294,7 +8294,7 @@ window.PushUI = {
             let blocSignalement = null;
             if (nbKo > 0) {
                 blocSignalement = document.createElement("p");
-                blocSignalement.innerHTML = `🙏 Si vous êtes gentil, veuillez signaler le problème au .... <br>Sinon laissez tomber..`;
+                blocSignalement.innerHTML = `🙏 Si vous êtes gentil, veuillez signaler le problème à Tri !!!`;
                 blocSignalement.style.cssText = `
                     font-size:13px;
                     color:#b71c1c;
@@ -9545,11 +9545,13 @@ window.executerWifi = async function() {
                                     }
                                 }
                             } else {
-                                throw new Error("Champ SSID 5 GHz introuvable (#wifi_private_ssid).");
+                                console.warn("⚠️ Champ SSID 5 GHz introuvable (#wifi_private_ssid). Étape 5 GHz ignorée.");
                             }
+
                         } else {
-                            throw new Error("Lien configuration 5 GHz introuvable (#wifi_accesspoint5_link_txt / #wifi_accesspoint5_link).");
+                            console.warn("⚠️ Lien configuration 5 GHz introuvable (#wifi_accesspoint5_link_txt / #wifi_accesspoint5_link). Étape 5 GHz ignorée.");
                         }
+
                     } else {
                         throw new Error("Composants Wi-Fi 2.4 GHz introuvables dans l'iframe (#wifi_accesspoint24 / #wifi_accesspointboth).");
                     }

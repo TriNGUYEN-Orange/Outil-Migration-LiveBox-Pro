@@ -51,7 +51,7 @@ window.executerExtractionBox3 = async function() {
         await executerModuleNormal(4, "Table de Routage", window.extraireRoutageBox3, Verif.validerRoutage);
         await executerModuleNormal(5, "NAT/PAT", window.extraireNatpatBox3, Verif.validerNatpat);
         await executerModuleNormal(4, "DynDNS", window.extraireDyndnsBox3, Verif.validerDyndns);
-        await executerModuleNormal(7, "DMZ", window.extraireDmzBox3, Verif.validerDmz);
+        await executerModuleNormal(7, "Équipements DMZ", window.extraireDmzBox3, Verif.validerDmz);
         await executerModuleNormal(8, "Pare-feu", window.extraireParefeuBox3, Verif.validerParefeu); 
         await executerModuleNormal(9, "VPN Nomade", window.extraireVpnNomadeBox3, Verif.validerVpnNomade);
         await executerModuleNormal(10, "VPN Site à Site", window.extraireVpnSiteBox3, Verif.validerVpnSite);
@@ -160,14 +160,14 @@ window.executerExtractionBox3 = async function() {
     const modulesBox3 = [
         "extract_accueil.js",
         "extract_wifi.js", 
-        //"extract_dhcp_dns.js",
-        //"extract_routage.js", 
-        //"extract_natpat.js", 
-        //"extract_dyndns.js",
-        //"extract_dmz.js", 
-        //"extract_parefeu.js",
-        //"extract_vpn_nomade.js",
-        //"extract_vpn_siteasite.js",
+        "extract_dhcp_dns.js",
+        "extract_routage.js", 
+        "extract_natpat.js", 
+        "extract_dyndns.js",
+        "extract_dmz.js", 
+        "extract_parefeu.js",
+        "extract_vpn_nomade.js",
+        "extract_vpn_siteasite.js",
         "extract_acces_distance.js"
 
     ];
