@@ -1,5 +1,32 @@
 /* --- /push/box7/push_routage.js --- */
 
+window.trouverIframeApp = async function(timeout = 20000) {
+    const selectors = [
+        "#iframeapp",
+        "iframe#iframeapp",
+        "#iframeApp",
+        "iframe[id*='iframe'][id*='app']",
+        "#content iframe",
+        "iframe[src*='network']",
+        "iframe[src*='advanced']"
+    ];
+
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+        for (const sel of selectors) {
+            const el = document.querySelector(sel);
+            if (el) {
+                try {
+                    const d = el.contentDocument || el.contentWindow?.document;
+                    if (d) return el;
+                } catch (e) {}
+            }
+        }
+        await window.attendrePause(300);
+    }
+    return null;
+};
+
 window.executerRoutage = async function() {
     try {
         console.log("⏳ Application des paramètres de Routage...");
@@ -50,19 +77,29 @@ window.executerRoutage = async function() {
         let clicTuile = window.cliquerBouton("#networkAdvanced .widget");
         if (!clicTuile) throw new Error("Échec clic sur: #networkAdvanced .widget");
 
-        await window.attendrePause(1500);
+        await window.attendrePause(1200);
 
-        // 3) Iframe
-        let iframe = await window.attendreElement("#iframeapp", 15000);
-        if (!iframe) throw new Error("Iframe introuvable: #iframeapp");
+        // 3) Iframe robuste (multi-selectors + retry re-clic tuile)
+        let iframe = null;
+        for (let t = 1; t <= 3; t++) {
+            iframe = await window.trouverIframeApp(8000);
+            if (iframe) break;
+
+            console.warn(`⚠️ Iframe non trouvée (tentative ${t}/3). Re-clic tuile réseau...`);
+            window.cliquerBouton("#networkAdvanced .widget");
+            await window.attendrePause(1200);
+        }
+        if (!iframe) {
+            throw new Error("Iframe introuvable après 3 tentatives (selectors multiples).");
+        }
 
         // Attente souple loading
         await new Promise((resolve) => {
             let intervalle = setInterval(() => {
                 try {
-                    let docIframe = iframe.contentDocument || iframe.contentWindow.document;
-                    if (docIframe && docIframe.readyState === "complete") {
-                        let loading = docIframe.querySelector("body > div.loading_screen");
+                    let docIframeTmp = iframe.contentDocument || iframe.contentWindow.document;
+                    if (docIframeTmp && (docIframeTmp.readyState === "interactive" || docIframeTmp.readyState === "complete")) {
+                        let loading = docIframeTmp.querySelector("body > div.loading_screen");
                         if (!loading || window.getComputedStyle(loading).display === "none") {
                             clearInterval(intervalle);
                             resolve();

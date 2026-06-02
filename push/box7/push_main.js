@@ -27,6 +27,7 @@
     };
 
     const BASE_URL = 'https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro/';
+    //const BASE_URL = "http://127.0.0.1:5500/"
 
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réveil du système", nomEnv: "Wake-Up", fichier: "push_wakeup.js", fonction: "executerWakeUp" },

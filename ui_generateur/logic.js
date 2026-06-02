@@ -1,6 +1,5 @@
 const LOCAL_BASE_URL = "https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro"; 
-//https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro
-//http://127.0.0.1:5500
+//const LOCAL_BASE_URL = "http://127.0.0.1:5500"
 
 /* --- GENERATEURS DE BOOKMARKLETS (Architecture Routeur) --- */
 /* Les bookmarklets pointent desormais vers les fichiers routeurs globaux */
