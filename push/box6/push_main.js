@@ -11,6 +11,7 @@
        ⚙️ CONFIGURATION DU COMPORTEMENT
        ========================================= */
     const BASE_URL = 'https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro/';
+    //const BASE_URL = "http://127.0.0.1:5500/"
 
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réveil du système", nomEnv: "Wake-Up", fichier: "push_wakeup.js", fonction: "executerWakeUp" },
@@ -26,6 +27,17 @@
 
     const MODULES_A_EXECUTER = LISTE_MODULES.filter(mod => mod.actif);
     const TOTAL_ETAPES = MODULES_A_EXECUTER.length;
+
+    const nettoyerJsonLocal = () => {
+        try {
+            localStorage.removeItem("livebox_migration_config");
+            sessionStorage.removeItem("livebox_migration_config");
+            window.configLivebox = null;
+            console.log("🧹 JSON local supprimé (livebox_migration_config).");
+        } catch (e) {
+            console.warn("⚠️ Impossible de supprimer le JSON local :", e);
+        }
+    };
 
     async function chargerModule(chemin) {
         return new Promise((resolve, reject) => {
@@ -157,8 +169,10 @@
 
             if (UI && typeof UI.succes === "function") {
                 UI.succes();
+                nettoyerJsonLocal();
             } else {
                 console.log("✅ Migration terminée.");
+                nettoyerJsonLocal();
             }
 
         } catch (erreurGrave) {

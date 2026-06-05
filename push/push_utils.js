@@ -1,7 +1,5 @@
 /* --- /push/push_utils.js --- */
 
-/* 🚨 FIX ULTIME : On attache explicitement TOUTES les variables et fonctions à l'objet 'window' */
-
 window.CLE_STORAGE = "livebox_migration_config";
 window.configLivebox = null; 
 
@@ -37,7 +35,7 @@ window.attendreElement = (selecteur, tempsMax = 15000) => {
 };
 
 /* ========================================================================= */
-/* ⚡ FONCTIONS GLOBALES GÉNÉRIQUES (RÉUTILISABLES PAR TOUS LES SCRIPTS) ⚡ */
+/* FONCTIONS GLOBALES GÉNÉRIQUES (RÉUTILISABLES PAR TOUS LES SCRIPTS) */
 /* ========================================================================= */
 
 window.attendreElementDansDoc = (docContext, selecteur, tempsMax = 10000) => {
@@ -297,3 +295,21 @@ window.chargerConfiguration = async function() {
         document.body.appendChild(overlay);
     });
 };
+
+window.nettoyerJsonLocal = function() {
+    try {
+        const key = window.CLE_STORAGE || "livebox_migration_config";
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+
+        localStorage.removeItem("livebox_migration_config");
+
+        window.configLivebox = null;
+        console.log("🧹 JSON local supprimé. Key:", key);
+        return true;
+    } catch (e) {
+        console.warn("⚠️ Impossible de supprimer le JSON local :", e);
+        return false;
+    }
+};
+
