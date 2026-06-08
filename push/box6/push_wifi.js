@@ -18,7 +18,6 @@ window.executerWifi = async function() {
         throw new Error("Configuration absente (Wi-Fi).");
     }
 
-
     if (!configurationActuelle || !configurationActuelle.wifi) {
         console.warn("⚠️ Pas de données Wi-Fi trouvées à appliquer.");
         return;
@@ -43,13 +42,14 @@ window.executerWifi = async function() {
                     clearInterval(interval);
                     resolve(null);
                 }
-            }, 500);
+            }, 300);
         });
     };
 
     const attendreFinSauvegarde = async (iframeNode) => {
-        console.log("⏳ Attente du traitement par la Livebox...");
-        await new Promise(r => setTimeout(r, 2000));
+        console.log("⏳ Attente du traitement par la Livebox (mode bugfix 20s)...");
+        await new Promise(r => setTimeout(r, 20000));
+
         await new Promise((resolve, reject) => {
             let done = false;
             let intv = setInterval(() => {
@@ -66,16 +66,117 @@ window.executerWifi = async function() {
                         }
                     }
                 } catch(e) {}
-            }, 1000);
+            }, 800);
 
             setTimeout(() => {
                 if (!done) {
                     clearInterval(intv);
                     reject(new Error("Timeout: fin de sauvegarde Wi-Fi non confirmée."));
                 }
-            }, 40000);
+            }, 50000);
         });
-        await new Promise(r => setTimeout(r, 1000));
+
+        await new Promise(r => setTimeout(r, 1500));
+    };
+
+    const ecrireChampRobuste = (doc, selector, value) => {
+        const el = doc.querySelector(selector);
+        if (!el || value === undefined || value === null) return false;
+
+        el.focus();
+        el.value = value;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "a" }));
+        el.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "a" }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        el.blur();
+        return true;
+    };
+
+    // ✅ NOUVEAU: save robuste en relisant le DOM à chaque tentative
+    const cliquerSaveRobuste = async (iframeNode, contexte = "Wi-Fi") => {
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        const SAVE_SEL = "#save, #submit, input#save, input#submit, button#save, button#submit, button[type='submit'], input[type='submit'], .btn-save, .button-save";
+        const CONFIRM_SEL = "#popup_confirm_submit, #popup_confirm, .btn-confirm, .button-confirm";
+
+        const getDoc = () => (iframeNode.contentDocument || iframeNode.contentWindow?.document || null);
+
+        const clickFort = (el) => {
+            if (!el) return false;
+            try { if (typeof window.cliquerPur === "function") window.cliquerPur(el); } catch(e) {}
+            try { el.focus(); } catch(e) {}
+            try { el.click(); } catch(e) {}
+
+            const view = iframeNode.contentWindow || window;
+            ["pointerdown","mousedown","pointerup","mouseup","click"].forEach(type => {
+                try {
+                    el.dispatchEvent(new MouseEvent(type, {
+                        bubbles: true,
+                        cancelable: true,
+                        view
+                    }));
+                } catch(e) {}
+            });
+            return true;
+        };
+
+        for (let tentative = 1; tentative <= 3; tentative++) {
+            let doc = getDoc();
+            if (!doc) throw new Error(`Document iframe inaccessible (${contexte}).`);
+
+            let btnSave = doc.querySelector(SAVE_SEL);
+
+            if (!btnSave) {
+                console.warn(`⚠️ [${contexte}] Save introuvable tentative ${tentative}/3`);
+                await sleep(700);
+                continue;
+            }
+
+            btnSave.scrollIntoView({ behavior: "smooth", block: "center" });
+            await sleep(500);
+
+            // Relecture après scroll (DOM peut être rerender)
+            doc = getDoc();
+            btnSave = doc?.querySelector(SAVE_SEL);
+            if (!btnSave) {
+                console.warn(`⚠️ [${contexte}] Save disparu après scroll tentative ${tentative}/3`);
+                await sleep(700);
+                continue;
+            }
+
+            try { btnSave.disabled = false; } catch(e) {}
+            try { btnSave.removeAttribute("disabled"); } catch(e) {}
+            try { btnSave.style.pointerEvents = "auto"; } catch(e) {}
+
+            console.log(`👉 [${contexte}] tentative click save ${tentative}/3`, btnSave);
+            clickFort(btnSave);
+            await sleep(1200);
+
+            // Confirm popup éventuel
+            doc = getDoc();
+            let btnConfirm = doc?.querySelector(CONFIRM_SEL);
+            if (!btnConfirm) {
+                btnConfirm = await attendreElementIframeDynamique(iframeNode, CONFIRM_SEL, 2500);
+            }
+            if (btnConfirm) {
+                clickFort(btnConfirm);
+                await sleep(700);
+                console.log(`✅ [${contexte}] popup confirm cliqué`);
+            }
+
+            // Si bouton devient disabled ou disparaît, on considère le clic pris
+            doc = getDoc();
+            const btnAfter = doc?.querySelector(SAVE_SEL);
+            if (!btnAfter || btnAfter.disabled) {
+                console.log(`✅ [${contexte}] clic save pris en compte (état bouton changé)`);
+                return;
+            }
+
+            // Sinon on retente
+            await sleep(900);
+        }
+
+        throw new Error(`Bouton save non cliquable après 3 tentatives (${contexte}).`);
     };
 
     let succesGlobal = false;
@@ -133,13 +234,13 @@ window.executerWifi = async function() {
             if (!docIframe) throw new Error("Document iframe Wi-Fi inaccessible.");
             let configWifi = configurationActuelle.wifi;
 
-            if (configWifi.ssid) window.ecrireTexteDansDoc(docIframe, "#wifi_private_ssid", configWifi.ssid);
+            if (configWifi.ssid) ecrireChampRobuste(docIframe, "#wifi_private_ssid", configWifi.ssid);
 
             if (configWifi["mot_de_passe"]) {
                 let mdpValide = typeof window.obtenirMotDePasseConforme === "function"
                     ? await window.obtenirMotDePasseConforme(configWifi["mot_de_passe"], "Wi-Fi 2.4 GHz")
                     : configWifi["mot_de_passe"];
-                if (mdpValide) window.ecrireTexteDansDoc(docIframe, "#wifi_private_securitykey", mdpValide);
+                if (mdpValide) ecrireChampRobuste(docIframe, "#wifi_private_securitykey", mdpValide);
             }
 
             if (configWifi.wifi2_4 && typeof configWifi.wifi2_4["diffusion_ssid"] !== "undefined") {
@@ -195,24 +296,11 @@ window.executerWifi = async function() {
                 }
             }
 
-            let btnSave = docIframe.querySelector("#save");
-            if (!btnSave) throw new Error("Bouton save 2.4G introuvable (#save).");
-
-            btnSave.scrollIntoView({ behavior: "smooth", block: "center" });
-            await window.attendrePause(500);
-
-            if (typeof window.cliquerPur === "function") window.cliquerPur(btnSave);
-            else btnSave.click();
-
-            let btnConfirm = await attendreElementIframeDynamique(iframe, "#popup_confirm_submit", 3000);
-            if (btnConfirm) {
-                await window.attendrePause(500);
-                if (typeof window.cliquerPur === "function") window.cliquerPur(btnConfirm);
-                else btnConfirm.click();
-            }
+            await cliquerSaveRobuste(iframe, "2.4G");
 
             console.log("⏳ Enregistrement 2.4 GHz...");
             await attendreFinSauvegarde(iframe);
+            await window.attendrePause(3000);
 
             console.log("⏳ Transition vers la configuration 5 GHz...");
             await window.attendrePause(2000);
@@ -253,7 +341,7 @@ window.executerWifi = async function() {
                 if (!docIframe) throw new Error("Document iframe inaccessible pendant config 5G.");
                 let configWifi = configurationActuelle.wifi;
 
-                if (configWifi.wifi5.ssid) window.ecrireTexteDansDoc(docIframe, "#wifi_private_ssid", configWifi.wifi5.ssid);
+                if (configWifi.wifi5.ssid) ecrireChampRobuste(docIframe, "#wifi_private_ssid", configWifi.wifi5.ssid);
 
                 if (typeof configWifi.wifi5["diffusion_ssid"] !== "undefined") {
                     let cbDiffusion5 = docIframe.querySelector("#wifi_private_broadcastssid_id_1");
@@ -265,7 +353,7 @@ window.executerWifi = async function() {
                     let mdpValide5 = typeof window.obtenirMotDePasseConforme === "function"
                         ? await window.obtenirMotDePasseConforme(configWifi.wifi5["mdp"], "Wi-Fi 5 GHz")
                         : configWifi.wifi5["mdp"];
-                    if (mdpValide5) window.ecrireTexteDansDoc(docIframe, "#wifi_private_securitykey", mdpValide5);
+                    if (mdpValide5) ecrireChampRobuste(docIframe, "#wifi_private_securitykey", mdpValide5);
                 }
 
                 let cbOled5 = docIframe.querySelector("#wifi_private_oledSecurityKey_1");
@@ -291,24 +379,11 @@ window.executerWifi = async function() {
                     }
                 }
 
-                let btnSave5 = docIframe.querySelector("#save");
-                if (!btnSave5) throw new Error("Bouton save 5G introuvable (#save).");
-
-                btnSave5.scrollIntoView({ behavior: "smooth", block: "center" });
-                await window.attendrePause(500);
-
-                if (typeof window.cliquerPur === "function") window.cliquerPur(btnSave5);
-                else btnSave5.click();
-
-                let btnConfirm5 = await attendreElementIframeDynamique(iframe, "#popup_confirm_submit", 3000);
-                if (btnConfirm5) {
-                    await window.attendrePause(500);
-                    if (typeof window.cliquerPur === "function") window.cliquerPur(btnConfirm5);
-                    else btnConfirm5.click();
-                }
+                await cliquerSaveRobuste(iframe, "5G");
 
                 console.log("⏳ Enregistrement 5 GHz...");
                 await attendreFinSauvegarde(iframe);
+                await window.attendrePause(3000);
             }
 
             succesPasse = true;
