@@ -84,7 +84,7 @@ window.PushPDF = {
         }
 
         html += `
-                <h2 style="color: #2e7d32; border-bottom: 2px solid #4caf50; padding-bottom: 5px; margin-top: 30px; font-size: 18px;">2. Données Brutes Injectées</h2>
+                <h2 style="color: #2e7d32; border-bottom: 2px solid #4caf50; padding-bottom: 5px; margin-top: 30px; font-size: 18px;">2. Données Brutes Injectées Chiffrées</h2>
                 <pre style="background: #f4f4f4; border: 1px solid #ddd; padding: 15px; border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; color: #d63384;">${JSON.stringify(config, null, 4)}</pre>
             </div>
         `;

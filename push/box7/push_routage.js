@@ -31,14 +31,21 @@ window.executerRoutage = async function() {
     try {
         console.log("⏳ Application des paramètres de Routage...");
 
-        let configStr = localStorage.getItem("livebox_migration_config");
-        let configurationActuelle = null;
+        let configurationActuelle = window.configLivebox;
 
-        try {
-            configurationActuelle = configStr ? JSON.parse(configStr) : window.configLivebox;
-        } catch (e) {
-            throw new Error("Config JSON invalide (livebox_migration_config).");
+        if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+            try {
+                configurationActuelle = await window.chargerConfiguration();
+                window.configLivebox = configurationActuelle;
+            } catch (e) {
+                throw new Error("Configuration non décodable (routage).");
+            }
         }
+
+        if (!configurationActuelle) {
+            throw new Error("Configuration absente (ni window.configLivebox ni chargement).");
+        }
+
 
         if (!configurationActuelle) {
             throw new Error("Configuration absente (ni localStorage ni window.configLivebox).");

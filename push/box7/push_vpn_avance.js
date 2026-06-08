@@ -3,17 +3,21 @@
 window.executerVpnNomadeAvance = async function() {
     console.log("⏳ [VPN Avancé] Initialisation du module (contexte VPN déjà ouvert)...");
 
-    let configJSON = localStorage.getItem("livebox_migration_config");
-    if (!configJSON) {
-        throw new Error("Configuration introuvable dans localStorage (livebox_migration_config).");
+    let configLivebox = window.configLivebox;
+
+    if (!configLivebox && typeof window.chargerConfiguration === "function") {
+        try {
+            configLivebox = await window.chargerConfiguration();
+            window.configLivebox = configLivebox;
+        } catch (e) {
+            throw new Error("Configuration non décodable (VPN Avancé).");
+        }
     }
 
-    let configLivebox = null;
-    try {
-        configLivebox = JSON.parse(configJSON);
-    } catch (e) {
-        throw new Error("Configuration JSON invalide (VPN Avancé).");
+    if (!configLivebox) {
+        throw new Error("Configuration absente (VPN Avancé).");
     }
+
 
     if (!configLivebox || !configLivebox.vpn || !configLivebox.vpn.nomade) {
         console.warn("⚠️ [VPN Avancé] IGNORÉ : Aucune configuration trouvée.");

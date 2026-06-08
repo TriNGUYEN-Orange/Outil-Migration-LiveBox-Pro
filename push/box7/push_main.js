@@ -26,19 +26,19 @@
         return window.location.origin;
     };
 
-    const BASE_URL = 'https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro/';
-    //const BASE_URL = "http://127.0.0.1:5500/"
+    // const BASE_URL = detectBaseUrl();
+    const BASE_URL = "http://127.0.0.1:5500/";
 
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réveil du système", nomEnv: "Wake-Up", fichier: "push_wakeup.js", fonction: "executerWakeUp" },
-        { actif: true,  nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" }, //ok ok
-        { actif: true,  nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" }, //ok ok
-        { actif: true,  nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" }, //ok ok
-        { actif: true,  nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" }, //ok ok
-        { actif: true,  nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_avance.js", fonction: "executerVpnNomadeAvance" }, //ok okk
-        { actif: true, nomUI: "VPN Site à Site", nomEnv: "VPN Site à Site", fichier: "push_vpn_siteasite.js", fonction: "executerVpnSiteASite" }, //ok okkk 
-        { actif: true,  nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" }, //ok okkkkk
-        { actif: true,  nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" } //ok okkkk
+        { actif: true,  nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
+        { actif: true, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" },
+        { actif: true, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },
+        { actif: true, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },
+        { actif: true, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_avance.js", fonction: "executerVpnNomadeAvance" },
+        { actif: true, nomUI: "VPN Site à Site", nomEnv: "VPN Site à Site", fichier: "push_vpn_siteasite.js", fonction: "executerVpnSiteASite" },
+        { actif: true, nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" },
+        { actif: true, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" }
     ];
 
     const MODULES_A_EXECUTER = LISTE_MODULES.filter(mod => mod.actif);
@@ -57,8 +57,10 @@
 
     async function chargerModule(chemin) {
         return new Promise((resolve, reject) => {
+            const cleanBase = BASE_URL.replace(/\/+$/, "");
+            const cleanPath = chemin.replace(/^\/+/, "");
             const script = document.createElement("script");
-            script.src = BASE_URL + chemin + "?v=" + Date.now();
+            script.src = `${cleanBase}/${cleanPath}?v=${Date.now()}`;
             script.onload = () => resolve();
             script.onerror = () => reject(new Error(`Fichier introuvable : ${chemin}`));
             document.head.appendChild(script);
@@ -115,8 +117,29 @@
             await new Promise(r => setTimeout(r, 1000));
 
             if (UI && typeof UI.maj === "function") UI.maj(0, TOTAL_ETAPES, "Chargement des utilitaires...");
+
+            // ✅ Pas de CryptoJS loader
             await chargerModule("/push/push_utils.js");
             await chargerModule("/push/push_validation.js");
+
+            if (typeof window.chargerConfiguration === "function") {
+                window.configLivebox = await window.chargerConfiguration();
+            } else {
+                throw new Error("chargerConfiguration introuvable.");
+            }
+
+            if (!window.configLivebox || typeof window.configLivebox !== "object") {
+                throw new Error("Configuration vide / non déchiffrable.");
+            }
+
+            console.log("✅ Configuration chargée dans window.configLivebox");
+            try {
+                const raw = localStorage.getItem("livebox_migration_config");
+                if (raw) {
+                    const p = JSON.parse(raw);
+                    console.log("ℹ️ Payload alg détecté:", p.alg || "plain");
+                }
+            } catch(e) {}
 
             for (let i = 0; i < MODULES_A_EXECUTER.length; i++) {
                 const moduleCourant = MODULES_A_EXECUTER[i];

@@ -3,13 +3,21 @@
 window.executerVpnNomade = async function() {
     console.log("⏳ Application des paramètres VPN Nomade (Box 7)...");
 
-    let configStr = localStorage.getItem("livebox_migration_config");
-    let configurationActuelle = null;
-    try {
-        configurationActuelle = configStr ? JSON.parse(configStr) : window.configLivebox;
-    } catch (e) {
-        throw new Error("Configuration JSON invalide (VPN Nomade).");
+    let configurationActuelle = window.configLivebox;
+
+    if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+        try {
+            configurationActuelle = await window.chargerConfiguration();
+            window.configLivebox = configurationActuelle;
+        } catch (e) {
+            throw new Error("Configuration non décodable (VPN Nomade).");
+        }
     }
+
+    if (!configurationActuelle) {
+        throw new Error("Configuration absente (VPN Nomade).");
+    }
+
 
     if (!configurationActuelle || !configurationActuelle.vpn || !configurationActuelle.vpn.nomade) {
         console.warn("⚠️ Pas de données VPN Nomade trouvées à appliquer.");

@@ -32,14 +32,17 @@ window.executerWifi = async function() {
     try {
         console.log("⏳ Application des paramètres Wi-Fi (Livebox 7)...");
 
-        let configStr = localStorage.getItem("livebox_migration_config");
-        let configurationActuelle = null;
+        let configurationActuelle = window.configLivebox;
 
-        try {
-            configurationActuelle = configStr ? JSON.parse(configStr) : window.configLivebox;
-        } catch (e) {
-            throw new Error("Configuration invalide: JSON parse impossible (livebox_migration_config).");
+        if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+            try {
+                configurationActuelle = await window.chargerConfiguration();
+                window.configLivebox = configurationActuelle;
+            } catch (e) {
+                throw new Error("Configuration non décodable (Wi-Fi).");
+            }
         }
+
 
         if (!configurationActuelle) {
             throw new Error("Configuration introuvable: ni localStorage ni window.configLivebox.");

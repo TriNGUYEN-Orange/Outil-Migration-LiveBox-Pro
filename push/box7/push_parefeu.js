@@ -3,18 +3,26 @@
 window.executerParefeu = async function() {
     console.log("⏳ Application des paramètres du Pare-feu...");
 
-    /* 1) Lecture de configuration */
-    let configStr = localStorage.getItem("livebox_migration_config");
-    let configurationActuelle = null;
-    try {
-        configurationActuelle = configStr ? JSON.parse(configStr) : window.configLivebox;
-    } catch (e) {
-        throw new Error("Configuration JSON invalide (pare-feu).");
+    /* 1) Lecture de configuration (priorité: config déchiffrée globale) */
+    let configurationActuelle = window.configLivebox;
+
+    // Fallback soft si config absente (sans casser ton code actuel)
+    if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+        try {
+            configurationActuelle = await window.chargerConfiguration();
+            window.configLivebox = configurationActuelle;
+            console.log("ℹ️ Fallback: configuration rechargée via chargerConfiguration().");
+        } catch (e) {
+            console.warn("⚠️ Fallback chargerConfiguration() a échoué:", e);
+        }
     }
 
-    if (!configurationActuelle || !configurationActuelle.parefeu) {
-        console.warn("⚠️ Pas de données Pare-feu trouvées à appliquer.");
-        return;
+    if (!configurationActuelle) {
+        throw new Error("Configuration non chargée (window.configLivebox vide).");
+    }
+
+    if (!configurationActuelle.parefeu || typeof configurationActuelle.parefeu !== "object") {
+        throw new Error("Section 'parefeu' absente de la configuration déchiffrée.");
     }
 
     /* 2) Navigation vers paramètres avancés */
