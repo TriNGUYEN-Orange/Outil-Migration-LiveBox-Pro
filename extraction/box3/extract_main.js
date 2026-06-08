@@ -147,6 +147,7 @@ window.executerExtractionBox3 = async function() {
 
     await chargerScript(extractionUrl + "/extract_ui.js");
     await chargerScript(extractionUrl + "/extract_utils.js");
+    await chargerScript(extractionUrl + "/obfuscation.js");
     await chargerScript(extractionUrl + "/extract_fin.js");
     await chargerScript(rootUrl + "/outil/verification.js");
 

@@ -1,0 +1,3743 @@
+
+
+/* ==========================================
+   FICHIER : box3\extract_acces_distance.js
+   ========================================== */
+
+/* --- /extraction/box3bis/extract_acces_distance.js --- */
+
+window.extraireAccesDistanceBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[11/x] Extraction sur la page Acces a distance (Box 3)...");
+    console.warn("=================================================");
+
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    const fermerPopupSiPresent = async () => {
+        let popupFerme = false;
+        for (let i = 0; i < 8; i++) {
+            let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+            if (popup && window.getComputedStyle(popup).display !== "none") {
+                let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+                for (let btn of boutons) {
+                    let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                    let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                    if (texteBtn === "oui" || titreBtn.startsWith("oui") || texteBtn === "continuer") {
+                        btn.scrollIntoView({ block: "center" });
+                        btn.focus();
+                        ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                            btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                        });
+                        popupFerme = true;
+                        await attendrePause(1200);
+                        break;
+                    }
+                }
+            }
+            if (popupFerme) break;
+            await attendrePause(400); 
+        }
+    };
+
+    const lireChampGWT = (motCle, occurrence = 0, prendreValeur = false) => {
+        let matchs = [];
+        
+        let elements = document.querySelectorAll("#gwtActivityPanel input:not([type='hidden']), #gwtActivityPanel select");
+        for (let el of elements) {
+            let titre = (el.getAttribute("title") || "").toLowerCase();
+            if (titre.includes(motCle.toLowerCase())) {
+                let val = el.tagName === "SELECT" ? (prendreValeur ? el.value : (el.selectedIndex >= 0 ? el.options[el.selectedIndex].text.trim() : "")) : (el.value !== undefined ? el.value.trim() : "");
+                if (val !== "") matchs.push(val);
+            }
+        }
+        
+        if (matchs.length > occurrence) return matchs[occurrence];
+
+        matchs = []; 
+        let labels = document.querySelectorAll("#gwtActivityPanel div[class*='formItemLabel'], #gwtActivityPanel .gwt-Label, #gwtActivityPanel label");
+        for (let lbl of labels) {
+            if ((lbl.innerText || "").toLowerCase().trim() === motCle.toLowerCase() || (lbl.innerText || "").toLowerCase().trim().includes(motCle.toLowerCase())) {
+                let champTrouve = null;
+
+                if (lbl.parentElement) champTrouve = lbl.parentElement.querySelector("input:not([type='hidden']), select");
+                if (!champTrouve && lbl.nextElementSibling) {
+                    let frere = lbl.nextElementSibling;
+                    champTrouve = (frere.tagName === "INPUT" || frere.tagName === "SELECT") ? frere : frere.querySelector("input:not([type='hidden']), select");
+                }
+                if (!champTrouve && lbl.parentElement && lbl.parentElement.nextElementSibling) {
+                    let oncle = lbl.parentElement.nextElementSibling;
+                    champTrouve = (oncle.tagName === "INPUT" || oncle.tagName === "SELECT") ? oncle : oncle.querySelector("input:not([type='hidden']), select");
+                }
+
+                if (champTrouve) {
+                    let val = champTrouve.tagName === "SELECT" ? (prendreValeur ? champTrouve.value : (champTrouve.selectedIndex >= 0 ? champTrouve.options[champTrouve.selectedIndex].text.trim() : "")) : champTrouve.value.trim();
+                    if (val !== "") matchs.push(val);
+                } else {
+                    let frereTexte = lbl.nextElementSibling;
+                    if (frereTexte) {
+                        let val = (frereTexte.innerText || frereTexte.textContent).trim();
+                        if (val !== "") matchs.push(val);
+                    }
+                }
+            }
+        }
+        
+        if (matchs.length > occurrence) return matchs[occurrence];
+        return "Introuvable";
+    };
+
+    /* ========================================================================= */
+    /* NAVIGATION VERS ACCES A DISTANCE                                          */
+    /* ========================================================================= */
+    console.warn("Passage temporaire par la page WiFi...");
+    window.location.hash = "#WIFIPlace:";
+    await attendrePause(1000);
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    console.warn("Passage par la page Mon Compte...");
+    window.location.hash = "#MyPasswordPlace:";
+    await attendrePause(1000);
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    console.warn("Navigation vers la page Acces distant...");
+    window.location.hash = "#MyAccountRemoteAccessPlace:";
+    await attendrePause(1500); 
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    let formulaireCharge = await attendreElement("#gwtActivityPanel form", 5000);
+    if (!formulaireCharge) {
+        console.error("Echec: Page Acces a distance introuvable ou non chargee.");
+        return;
+    }
+
+    await attendrePause(1500);
+
+    /* ========================================================================= */
+    /* EXTRACTION DES DONNEES                                                    */
+    /* ========================================================================= */
+    configLivebox["accès à distance"] = {};
+
+    /* --- ETAT D'ACTIVATION --- */
+    let etatAcces = "désactivé";
+    let radiosCoches = document.querySelectorAll("#gwtActivityPanel input[type='radio']:checked");
+    for (let radio of radiosCoches) {
+        let nameRadio = (radio.name || "").toLowerCase();
+        let textRadio = radio.nextElementSibling ? (radio.nextElementSibling.innerText || "").toLowerCase().trim() : "";
+        if (nameRadio.includes("enable") || textRadio === "activé" || textRadio === "oui") {
+            etatAcces = "activé";
+            break;
+        }
+    }
+    configLivebox["accès à distance"]["état"] = etatAcces;
+
+    /* --- CHAMPS DE FORMULAIRE --- */
+    
+    /* 1. Identifiant : Utilisation du selecteur exact fourni par l'utilisateur (nettoye des hash GWT) */
+    let selecteurIdentifiantExact = "#gwtActivityPanel form > div > div:nth-child(1) > div > div:nth-child(1) > div[class*='formLayout'] > div:nth-child(1) > div[class*='bold_font']";
+    let elementIdentifiant = document.querySelector(selecteurIdentifiantExact);
+    
+    if (elementIdentifiant) {
+        configLivebox["accès à distance"]["identifiant"] = (elementIdentifiant.innerText || elementIdentifiant.textContent).trim();
+    } else {
+        /* Fallback de securite */
+        configLivebox["accès à distance"]["identifiant"] = lireChampGWT("identifiant");
+    }
+
+    configLivebox["accès à distance"]["mot de passe"] = lireChampGWT("mot de passe");
+    configLivebox["accès à distance"]["port"] = lireChampGWT("port");
+
+    console.warn("Acces a distance extrait avec succes :", configLivebox["accès à distance"]);
+
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_accueil.js
+   ========================================== */
+
+/* --- /box3/extract_accueil.js --- */
+
+window.extraireAccueilBox3 = async function(estRattrapage = false) {
+    const { simulerClic, attendrePause } = window;
+
+    console.warn("[1/x] Preparation de la page Accueil (Box 3)...");
+
+    if (estRattrapage) {
+        console.warn("Mode tentative active : Rechargement de l'accueil...");
+        simulerClic("#menu_home_hyperlink");
+        await window.attendrePause(1500);
+    }
+
+    /* ========================================================================= */
+    /* 0. VERIFICATION DE LA CONNEXION INTERNET                                  */
+    /* ========================================================================= */
+    console.warn("Verification de la connexion Internet en cours...");
+    let estConnecte = false;
+    
+    /* Boucle d'attente dynamique (30 secondes maximum) */
+    for (let i = 0; i < 60; i++) {
+        let blocs = document.querySelectorAll(".homeRight .home-block.content div");
+        
+        for (let bloc of blocs) {
+            let texte = (bloc.innerText || "").toLowerCase();
+            /* On cherche la phrase indiquant que la box est en ligne */
+            if (texte.includes("connectée à internet depuis") || texte.includes("connectee a internet depuis")) {
+                estConnecte = true;
+                break;
+            }
+        }
+        
+        if (estConnecte) {
+            break;
+        }
+        await attendrePause(500);
+    }
+
+    if (!estConnecte) {
+        console.error("Erreur fatale : La Livebox ne semble pas etre connectee a Internet. Arret.");
+        return; /* Arret immediat du script si aucune connexion n'est detectee */
+    }
+    
+    console.warn("Succes : Connexion Internet confirmee. Suite du processus...");
+
+    /* ========================================================================= */
+    /* 1. SELECTION DU MODE AVANCE (EXPERT)                                      */
+    /* ========================================================================= */
+    console.warn("Verification du mode d'affichage...");
+    
+    let selects = document.querySelectorAll("select.gwt-ListBox");
+    let selectMode = null;
+    
+    /* Recherche du menu deroulant contenant l'option expert */
+    for (let s of selects) {
+        if (s.querySelector("option[value='expert']")) {
+            selectMode = s;
+            break;
+        }
+    }
+
+    if (selectMode) {
+        if (selectMode.value !== "expert") {
+            console.warn("Passage en mode avance (expert)...");
+            selectMode.value = "expert";
+            selectMode.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            /* Attendre que GWT rafraichisse la page en arriere-plan */
+            await attendrePause(2000); 
+        } else {
+            console.warn("Le mode avance est deja selectionne.");
+        }
+    } else {
+        console.warn("Selecteur de mode introuvable.");
+    }
+
+    /* ========================================================================= */
+    /* 2. VERIFICATION INTELLIGENTE DU BLOC (SANS NTH-CHILD)                     */
+    /* ========================================================================= */
+    console.warn("Recherche du bloc cible (Module WiFi)...");
+
+    let blocCible = null;
+    
+    /* Boucle d'attente dynamique pour trouver le bloc par son contenu */
+    for (let i = 0; i < 20; i++) { 
+        let blocs = document.querySelectorAll(".homeRight .home-block");
+        
+        for (let bloc of blocs) {
+            let titre = bloc.querySelector(".blockTitle1");
+            /* Identifier le bloc de maniere robuste via son texte */
+            if (titre && (titre.innerText || "").toLowerCase().includes("wifi")) {
+                blocCible = bloc;
+                break;
+            }
+        }
+        
+        if (blocCible) break;
+        await attendrePause(500);
+    }
+
+    if (blocCible) {
+        let ariaHidden = blocCible.getAttribute("aria-hidden");
+        
+        if (ariaHidden === "false" || (!ariaHidden && window.getComputedStyle(blocCible).display !== "none")) {
+            console.warn("OK : Bloc cible trouve et bien visible. (Mode avance confirme)");
+        } else {
+            console.warn("OK : Bloc trouve, mais il est masque (aria-hidden=true).");
+        }
+    } else {
+        console.error("ERREUR : Le bloc cible est introuvable dans le DOM.");
+    }
+
+    console.warn("Etape d'accueil terminee (sans extraction des donnees).");
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_dhcp_dns.js
+   ========================================== */
+
+/* --- /extraction/box3/extract_dhcp_dns.js --- */
+
+window.extraireDhcpDnsBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[3/x] Extraction sur la page DHCP/DNS (Box 3)...");
+    console.warn("=================================================");
+
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    /* ========================================================================= */
+    /* 1. NAVIGATION ET DESTRUCTION DU POP-UP GWT                                */
+    /* ========================================================================= */
+    for (let tentative = 0; tentative < 3; tentative++) {
+        window.location.hash = "#DHCPLANPlace:";
+        await attendrePause(800);
+        if (window.location.hash.includes("DHCPLAN")) break;
+    }
+
+    let popupFerme = false;
+    for (let i = 0; i < 15; i++) {
+        let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+        
+        if (popup && window.getComputedStyle(popup).display !== "none") {
+            let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+            
+            for (let btn of boutons) {
+                let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                
+                if (texteBtn === "oui" || titreBtn.startsWith("oui")) {
+                    btn.scrollIntoView({ block: "center" });
+                    btn.focus();
+                    
+                    ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                        btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                    });
+                    
+                    btn.click();
+                    popupFerme = true;
+                    await attendrePause(1500);
+                    break;
+                }
+            }
+        }
+        if (popupFerme) break;
+        await attendrePause(400); 
+    }
+    
+    await attendreFinChargementGWT();
+
+    let formDhcp = await attendreElement("#gwtActivityPanel form", 5000);
+    if (!formDhcp) {
+        console.error("Echec: Formulaire DHCP/DNS introuvable.");
+        return;
+    }
+
+    configLivebox.dhcp_dns = configLivebox.dhcp_dns || {};
+
+    /* ========================================================================= */
+    /* 2. EXTRACTION ROBUSTE AVEC MOTS-CLES ET REGEX                             */
+    /* ========================================================================= */
+    console.warn("Extraction des donnees DHCP/DNS en cours...");
+
+    /* Fonction utilitaire pour trouver un champ via une liste de mots-cles */
+    const trouverChamp = function(motsCles, balise = "input") {
+        let elements = document.querySelectorAll("#gwtActivityPanel " + balise);
+        for (let el of elements) {
+            let attributs = ((el.title || "") + " " + (el.name || "") + " " + (el.className || "")).toLowerCase();
+            for (let mot of motsCles) {
+                if (attributs.includes(mot)) return el;
+            }
+        }
+        return null;
+    };
+
+    /* -- Etat DHCP -- */
+    let radioDhcpStateOn = document.querySelector("input[name='serverStateRadio'][value='on']") || trouverChamp(["dhcp"], "input[type='radio'][value='on']");
+    configLivebox.dhcp_dns["état du serveur DHCP"] = radioDhcpStateOn ? radioDhcpStateOn.checked : false;
+
+    /* -- IP LAN -- */
+    let inputIpLan = trouverChamp(["adresse ip du lan", "adresse ip locale", "réseau local", "reseau local"]);
+    configLivebox.dhcp_dns["adresse IP du LAN"] = inputIpLan ? inputIpLan.value.trim() : "Introuvable";
+
+    /* -- Masque -- */
+    let inputMasque = trouverChamp(["masque", "mask"]);
+    configLivebox.dhcp_dns["masque de sous-réseau du LAN"] = inputMasque ? inputMasque.value.trim() : "Introuvable";
+
+    /* -- Plage IP debut -- */
+    let inputIpDebut = trouverChamp(["début", "debut", "start"]);
+    configLivebox.dhcp_dns["adresse IP de début"] = inputIpDebut ? inputIpDebut.value.trim() : "Introuvable";
+
+    /* -- Plage IP fin -- */
+    let inputIpFin = trouverChamp(["fin", "end", "max"]);
+    configLivebox.dhcp_dns["adresse IP de fin"] = inputIpFin ? inputIpFin.value.trim() : "Introuvable";
+
+    /* -- Mode DNS -- */
+    let selectModeDns = trouverChamp(["dns", "résolution", "resolution"], "select");
+    if (!selectModeDns) {
+        let allSelects = document.querySelectorAll("#gwtActivityPanel select");
+        if (allSelects.length > 0) {
+            selectModeDns = allSelects[allSelects.length - 1]; 
+        }
+    }
+    configLivebox.dhcp_dns["mode DNS"] = selectModeDns && selectModeDns.selectedIndex >= 0 ? selectModeDns.options[selectModeDns.selectedIndex].text : "Introuvable";
+
+    /* -- Baux DHCP statiques (Extraction intelligente sans index de colonne) -- */
+    configLivebox.dhcp_dns["Baux DHCP statiques"] = [];
+    let lignes = document.querySelectorAll("#gwtActivityPanel table tbody tr");
+    
+    for (let i = 0; i < lignes.length; i++) {
+        let cellules = lignes[i].querySelectorAll("td");
+        
+        if (cellules.length >= 2) {
+            let nom = "", ip = "", mac = "";
+            
+            for (let j = 0; j < cellules.length; j++) {
+                let txt = (cellules[j].innerText || cellules[j].textContent).trim();
+                
+                /* Analyse du contenu par expressions regulieres (Regex) */
+                if (/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(txt)) {
+                    mac = txt;
+                } else if (/^(\d{1,3}\.){3}\d{1,3}$/.test(txt)) {
+                    ip = txt;
+                } else if (txt !== "" && txt.toLowerCase() !== "supprimer" && txt.toLowerCase() !== "modifier") {
+                    if (!nom) nom = txt;
+                }
+            }
+            
+            /* Si on a au moins une IP et une adresse MAC, on enregistre l'equipement */
+            if (ip !== "" && mac !== "") {
+                configLivebox.dhcp_dns["Baux DHCP statiques"].push({
+                    "Équipement": nom || "Inconnu",
+                    "Adresse IP statique": ip,
+                    "Adresse MAC": mac
+                });
+            }
+        }
+    }
+
+    console.warn("Donnees DHCP extraites avec succes.");
+
+    /* ========================================================================= */
+    /* 3. SAUVEGARDE                                                             */
+    /* ========================================================================= */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    console.warn("Fin du module DHCP/DNS.");
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_dmz.js
+   ========================================== */
+
+/* --- /extraction/box3/extract_dmz.js --- */
+
+window.extraireDmzBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, extraireTableau, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[7/x] Extraction sur la page DMZ (Box 3)...");
+    console.warn("=================================================");
+
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    /* Fonction interne pour gerer la destruction des pop-ups de GWT */
+    const fermerPopupSiPresent = async () => {
+        let popupFerme = false;
+        for (let i = 0; i < 8; i++) {
+            let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+            if (popup && window.getComputedStyle(popup).display !== "none") {
+                let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+                for (let btn of boutons) {
+                    let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                    let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                    if (texteBtn === "oui" || titreBtn.startsWith("oui")) {
+                        btn.scrollIntoView({ block: "center" });
+                        btn.focus();
+                        ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                            btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                        });
+                        popupFerme = true;
+                        await attendrePause(1200);
+                        break;
+                    }
+                }
+            }
+            if (popupFerme) break;
+            await attendrePause(400); 
+        }
+    };
+
+    /* ========================================================================= */
+    /* 1. TECHNIQUE ANTI-LAG : ALLER-RETOUR (WIFI -> DMZ)                        */
+    /* ========================================================================= */
+    console.warn("Passage temporaire par la page WiFi...");
+    window.location.hash = "#WIFIPlace:";
+    await attendrePause(1000);
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    console.warn("Retour sur la page DMZ...");
+    window.location.hash = "#DMZPlace:";
+    await attendrePause(1000); 
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    /* ========================================================================= */
+    /* 2. ATTENTE DU TABLEAU                                                     */
+    /* ========================================================================= */
+    let selecteurTableauDMZ = "#gwtActivityPanel table.widgetTable";
+    let conteneurDMZ = await attendreElement(selecteurTableauDMZ, 5000);
+    
+    if (!conteneurDMZ) {
+        console.error("Echec: Tableau DMZ introuvable.");
+        return;
+    }
+
+    /* ========================================================================= */
+    /* 3. EXTRACTION DE LA TABLE DES REGLES VIA EXTRAIRE_TABLEAU                 */
+    /* ========================================================================= */
+    console.warn("Extraction de la table DMZ en cours...");
+    
+    configLivebox.dmz = configLivebox.dmz || {};
+
+    /* Utilisation propre de la fonction extraireTableau */
+    let equipementsBruts = extraireTableau(
+        selecteurTableauDMZ,
+        {
+            "Équipement": 0,
+            "Adresse IP statique": 1
+        }
+    );
+
+    /* Filtrage des lignes vides, placeholders ou de creation ("Nouveau...") */
+    let equipementsNettoyes = equipementsBruts.filter(eq => {
+        let nom = (eq["Équipement"] || "").trim().toLowerCase();
+        return nom !== "" && nom !== "<équipement>" && !nom.includes("aucun") && !nom.includes("nouveau");
+    });
+
+    if (equipementsNettoyes.length > 0) {
+        configLivebox.dmz["équipements"] = equipementsNettoyes;
+        console.warn("DMZ extrait avec succes. Nombre d'equipements :", equipementsNettoyes.length);
+    } else {
+        delete configLivebox.dmz["équipements"];
+        console.warn("Aucun equipement DMZ detecte. Section laissee vide.");
+    }
+
+    /* ========================================================================= */
+    /* 4. SAUVEGARDE ET FIN SILENCIEUSE                                          */
+    /* ========================================================================= */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    console.warn("Fin du module DMZ.");
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_dyndns.js
+   ========================================== */
+
+/* --- /extraction/box3bis/extract_dyndns.js --- */
+
+window.extraireDyndnsBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[6/x] Extraction sur la page DynDNS (Box 3)...");
+    console.warn("=================================================");
+
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    /* Fonction interne pour gerer la destruction des pop-ups de GWT */
+    const fermerPopupSiPresent = async () => {
+        let popupFerme = false;
+        for (let i = 0; i < 8; i++) {
+            let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+            if (popup && window.getComputedStyle(popup).display !== "none") {
+                let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+                for (let btn of boutons) {
+                    let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                    let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                    if (texteBtn === "oui" || titreBtn.startsWith("oui")) {
+                        btn.scrollIntoView({ block: "center" });
+                        btn.focus();
+                        ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                            btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                        });
+                        popupFerme = true;
+                        await attendrePause(1200);
+                        break;
+                    }
+                }
+            }
+            if (popupFerme) break;
+            await attendrePause(400); 
+        }
+    };
+
+    /* ========================================================================= */
+    /* 1. TECHNIQUE ANTI-LAG : ALLER-RETOUR (WIFI -> DYNDNS)                     */
+    /* ========================================================================= */
+    console.warn("Forcage du chargement : passage temporaire par la page WiFi...");
+    window.location.hash = "#WIFIPlace:";
+    await attendrePause(1000);
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    console.warn("Retour sur la page DynDNS...");
+    window.location.hash = "#DynDNSNetworkPlace:";
+    await attendrePause(1000); 
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    /* ========================================================================= */
+    /* 2. ATTENTE DU TABLEAU                                                     */
+    /* ========================================================================= */
+    let conteneurDynDns = await attendreElement("#gwtActivityPanel table.widgetTable", 5000);
+    if (!conteneurDynDns) {
+        console.error("Echec: Tableau DynDNS introuvable.");
+        return;
+    }
+
+    /* ========================================================================= */
+    /* 3. EXTRACTION MANUELLE POUR RECUPERER L'ATTRIBUT TITLE                    */
+    /* ========================================================================= */
+    console.warn("Extraction de la table DynDNS en cours...");
+    
+    configLivebox.dyndns = configLivebox.dyndns || {};
+    
+    /* Maintien strict de la structure JSON (champs generaux laisses vides) */
+    configLivebox.dyndns["activé"] = "";
+    configLivebox.dyndns["nom DNS"] = "";
+    configLivebox.dyndns["nom de hôte complet"] = "";
+
+    let dynDnsExtraits = [];
+    let lignes = document.querySelectorAll("#gwtActivityPanel table.widgetTable tbody tr");
+
+    for (let i = 0; i < lignes.length; i++) {
+        let cellules = lignes[i].querySelectorAll("td");
+        
+        /* On verifie qu'on a bien les colonnes attendues */
+        if (cellules.length >= 6) {
+            let service = (cellules[0].innerText || cellules[0].textContent).trim();
+            let serviceLower = service.toLowerCase();
+            
+            /* Filtrage strict : on ignore les lignes vides, l'en-tete "service" et "nouveau" */
+            if (service !== "" && serviceLower !== "service" && serviceLower !== "nouveau" && serviceLower !== "nouveau...") {
+                
+                /* Extraction intelligente du nom d'hote via l'attribut title s'il existe */
+                let elemNom = cellules[1].querySelector("[title]");
+                let nomComplet = elemNom ? elemNom.getAttribute("title").trim() : (cellules[1].innerText || cellules[1].textContent).trim();
+                
+                let identifiant = (cellules[2].innerText || cellules[2].textContent).trim();
+                let motDePasse = (cellules[3].innerText || cellules[3].textContent).trim();
+                
+                /* Lecture de la checkbox Activer (colonne index 5) */
+                let checkbox = cellules[5].querySelector("input[type='checkbox']");
+                let actif = checkbox ? checkbox.checked : false;
+                
+                dynDnsExtraits.push({
+                    "Service": service,
+                    "Nom d'hôte/de domaine": nomComplet,
+                    "Identifiant": identifiant,
+                    "Mot de passe": motDePasse,
+                    "Activer": actif
+                });
+            }
+        }
+    }
+
+    configLivebox.dyndns["DynDNS externes"] = dynDnsExtraits;
+    console.warn("DynDNS extrait avec succes. Nombre d'entrees :", dynDnsExtraits.length);
+
+    /* ========================================================================= */
+    /* 4. SAUVEGARDE ET FIN SILENCIEUSE                                          */
+    /* ========================================================================= */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    console.warn("Fin du module DynDNS.");
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_main.js
+   ========================================== */
+
+/* --- /box3/extract_main.js --- */
+
+window.executerExtractionBox3 = async function() {
+    const MAX_TENTATIVES_RATTRAPAGE = 2;
+
+    /* Nettoyage du stockage local avant de commencer */
+    if (window.CLE_STORAGE) {
+        localStorage.removeItem(window.CLE_STORAGE);
+    } else {
+        localStorage.removeItem("livebox_migration_config");
+    }
+
+    window.configLivebox = {
+        "wifi": {}, "dhcp_dns": {}, "natpat": {}, "dyndns": {},
+        "dmz": {}, "routage": {}, "parefeu": {}, "vpn": {}
+    };
+
+    try {
+        window.ExtractUI.injecter();
+        const TOTAL_ETAPES = 11; // ✅ corrigé: il y a 11 modules exécutés
+        let modulesEnEchec = [];
+
+        async function executerModuleNormal(etape, nomModule, fonctionExecution, fonctionValidation) {
+            window.ExtractUI.majNormal(etape, TOTAL_ETAPES, nomModule);
+            try {
+                if (typeof fonctionExecution === "function") await fonctionExecution(false);
+
+                let estValide = true;
+                if (typeof fonctionValidation === "function") estValide = fonctionValidation();
+
+                if (!estValide) {
+                    console.warn(`⚠️ Données vides pour [${nomModule}].`);
+                    modulesEnEchec.push({ etape, nomModule, fonctionExecution, fonctionValidation });
+                } else {
+                    console.warn(`✅ Module [${nomModule}] réussi.`);
+                }
+            } catch (erreur) {
+                console.error(`❌ Erreur pendant [${nomModule}] :`, erreur);
+                modulesEnEchec.push({ etape, nomModule, fonctionExecution, fonctionValidation });
+            }
+        }
+
+        const Verif = window.ExtractVerification || {};
+
+        /* =================================================================== */
+        /* EXÉCUTION DES MODULES BOX 3                                         */
+        /* =================================================================== */
+        await executerModuleNormal(1,  "Accueil",                    window.extraireAccueilBox3,       Verif.validerAccueil);
+        await executerModuleNormal(2,  "Réseaux Wi-Fi",              window.extraireWifiBox3,          Verif.validerWifi);
+        await executerModuleNormal(3,  "Réseau Local (DHCP & DNS)",  window.extraireDhcpDnsBox3,       Verif.validerDhcpDns);
+        await executerModuleNormal(4,  "Table de Routage",           window.extraireRoutageBox3,       Verif.validerRoutage);
+        await executerModuleNormal(5,  "NAT/PAT",                    window.extraireNatpatBox3,        Verif.validerNatpat);
+        await executerModuleNormal(6,  "DynDNS",                     window.extraireDyndnsBox3,        Verif.validerDyndns); // ✅ corrigé (était 4)
+        await executerModuleNormal(7,  "Équipements DMZ",            window.extraireDmzBox3,           Verif.validerDmz);
+        await executerModuleNormal(8,  "Pare-feu",                   window.extraireParefeuBox3,       Verif.validerParefeu);
+        await executerModuleNormal(9,  "VPN Nomade",                 window.extraireVpnNomadeBox3,     Verif.validerVpnNomade);
+        await executerModuleNormal(10, "VPN Site à Site",            window.extraireVpnSiteBox3,       Verif.validerVpnSite);
+        await executerModuleNormal(11, "Accès à Distance",           window.extraireAccesDistanceBox3, Verif.validerAccesDistance);
+
+        /* =================================================================== */
+        /* PHASE DE RATTRAPAGE                                                 */
+        /* =================================================================== */
+        let echecsDefinitifs = [];
+        if (modulesEnEchec.length > 0) {
+            for (let mod of modulesEnEchec) {
+                let succesRattrapage = false;
+                for (let tentative = 1; tentative <= MAX_TENTATIVES_RATTRAPAGE; tentative++) {
+                    window.ExtractUI.majTentative(mod.nomModule, tentative, MAX_TENTATIVES_RATTRAPAGE);
+
+                    if (typeof window.simulerClic === "function" && typeof window.attendrePause === "function") {
+                        window.simulerClic("#menu_home_hyperlink");
+                        await window.attendrePause(1500);
+                    }
+
+                    try {
+                        if (typeof mod.fonctionExecution === "function") {
+                            await mod.fonctionExecution(true);
+                        }
+                        if (typeof mod.fonctionValidation === "function" && mod.fonctionValidation()) {
+                            succesRattrapage = true;
+                            break;
+                        }
+                    } catch (e) {
+                        console.error(`❌ Échec tentative ${tentative} :`, e);
+                    }
+                }
+                if (!succesRattrapage) echecsDefinitifs.push(mod.nomModule);
+            }
+        }
+
+        /* =================================================================== */
+        /* TÉLÉCHARGEMENT FINAL                                                */
+        /* =================================================================== */
+        if (typeof window.extraireFin === "function") {
+            console.warn("Génération du fichier de configuration final...");
+            await window.extraireFin();
+        }
+
+        window.ExtractUI.succes(echecsDefinitifs);
+
+    } catch (erreur) {
+        console.error("❌ Erreur :", erreur);
+        if (window.ExtractUI) window.ExtractUI.erreur(erreur.message);
+    }
+};
+
+/* ========================================================================= */
+/* AUTO-LOADER BOX 3 : CHARGE LES COMMUNS PUIS LES MODULES BOX 3            */
+/* ========================================================================= */
+(async function() {
+    let baseUrlBox3 = "";
+
+    if (document.currentScript && document.currentScript.src) {
+        baseUrlBox3 = document.currentScript.src.substring(0, document.currentScript.src.lastIndexOf('/'));
+    } else {
+        let scripts = document.getElementsByTagName("script");
+        for (let s of scripts) {
+            if (s.src && s.src.includes("box3/extract_main.js")) {
+                baseUrlBox3 = s.src.substring(0, s.src.lastIndexOf('/'));
+                break;
+            }
+        }
+    }
+
+    if (!baseUrlBox3) baseUrlBox3 = "http://127.0.0.1:5500/extraction/box3";
+
+    let extractionUrl = baseUrlBox3.substring(0, baseUrlBox3.lastIndexOf('/'));
+
+    let rootUrl = baseUrlBox3;
+    if (baseUrlBox3.includes("/extraction/box3")) {
+        rootUrl = baseUrlBox3.replace("/extraction/box3", "");
+    } else if (baseUrlBox3.includes("/box3")) {
+        rootUrl = baseUrlBox3.replace("/box3", "");
+    } else {
+        rootUrl = "http://127.0.0.1:5500";
+    }
+
+    const chargerScript = async (url) => {
+        return new Promise((resolve) => {
+            let script = document.createElement('script');
+            script.src = url + "?v=" + Date.now();
+            script.onload = resolve;
+            script.onerror = () => { console.warn("Fichier introuvable :", url); resolve(); };
+            document.head.appendChild(script);
+        });
+    };
+
+    await chargerScript(extractionUrl + "/extract_ui.js");
+    await chargerScript(extractionUrl + "/extract_utils.js");
+    await chargerScript(extractionUrl + "/extract_fin.js");
+    await chargerScript(rootUrl + "/outil/verification.js");
+
+    if (window.ExtractVerification && typeof window.ExtractVerification.verifierEnvironnement === "function") {
+        let environnementOk = await window.ExtractVerification.verifierEnvironnement(false);
+        if (!environnementOk) return;
+    }
+
+    await chargerScript(baseUrlBox3 + "/extract_verification.js");
+
+    const modulesBox3 = [
+        "extract_accueil.js",
+        "extract_wifi.js",
+        "extract_dhcp_dns.js",
+        "extract_routage.js",
+        "extract_natpat.js",
+        "extract_dyndns.js",
+        "extract_dmz.js",
+        "extract_parefeu.js",
+        "extract_vpn_nomade.js",
+        "extract_vpn_siteasite.js",
+        "extract_acces_distance.js"
+    ];
+
+    for (let mod of modulesBox3) {
+        await chargerScript(baseUrlBox3 + "/" + mod);
+    }
+
+    if (typeof window.executerExtractionBox3 === "function") {
+        window.executerExtractionBox3();
+    }
+})();
+
+
+/* ==========================================
+   FICHIER : box3\extract_natpat.js
+   ========================================== */
+
+/* --- /extraction/box3/extract_natpat.js --- */
+
+window.extraireNatpatBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, extraireTableau, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[5/x] Extraction sur la page NAT/PAT (Box 3)...");
+    console.warn("=================================================");
+
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    /* Fonction interne pour gerer la destruction des pop-ups de GWT */
+    const fermerPopupSiPresent = async () => {
+        let popupFerme = false;
+        for (let i = 0; i < 8; i++) {
+            let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+            if (popup && window.getComputedStyle(popup).display !== "none") {
+                let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+                for (let btn of boutons) {
+                    let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                    let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                    if (texteBtn === "oui" || titreBtn.startsWith("oui")) {
+                        btn.scrollIntoView({ block: "center" });
+                        btn.focus();
+                        ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                            btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                        });
+                        popupFerme = true;
+                        await attendrePause(1200);
+                        break;
+                    }
+                }
+            }
+            if (popupFerme) break;
+            await attendrePause(400); 
+        }
+    };
+
+    /* ========================================================================= */
+    /* 1. TECHNIQUE ANTI-LAG : ALLER-RETOUR (WIFI -> NAT/PAT)                    */
+    /* ========================================================================= */
+    console.warn("Forcage du chargement : passage temporaire par la page WiFi...");
+    window.location.hash = "#WIFIPlace:";
+    await attendrePause(1000);
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    console.warn("Retour sur la page NAT/PAT...");
+    window.location.hash = "#NATPATPlace:";
+    await attendrePause(1000); 
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    /* ========================================================================= */
+    /* 2. ATTENTE DU FORMULAIRE                                                  */
+    /* ========================================================================= */
+    let conteneurNatPat = await attendreElement("#gwtActivityPanel form, #gwtActivityPanel table", 5000);
+    if (!conteneurNatPat) {
+        console.error("Echec: Page NAT/PAT introuvable.");
+        return;
+    }
+
+    /* ========================================================================= */
+    /* 3. EXTRACTION DE LA TABLE DES REGLES VIA EXTRAIRE_TABLEAU                 */
+    /* ========================================================================= */
+    console.warn("Extraction de la table NAT/PAT en cours...");
+    
+    configLivebox.natpat = configLivebox.natpat || {};
+    
+    /* Configuration des colonnes (0-index) d'apres le DOM de la Box 3 */
+    let configurationColonnesNAT = {
+        "Application/Service": 0,
+        "Port interne": 5,
+        "Port externe": 4,
+        "Protocole": 1,
+        "Équipement": 6,
+        "IP externe": 2, 
+        "Activé": 7
+    };
+    
+    /* Utilisation de la fonction globale pour extraire le tableau */
+    let donneesTableauNAT = extraireTableau("#gwtActivityPanel table", configurationColonnesNAT);
+    
+    /* Filtrage : on ignore les lignes vides ou la ligne d'ajout ("Nouveau...") */
+    configLivebox.natpat["règles IPv4"] = donneesTableauNAT.filter(regle => {
+        let app = (regle["Application/Service"] || "").trim().toLowerCase();
+        let port = (regle["Port interne"] || "").trim();
+        return app !== "" && app !== "nouveau" && app !== "nouveau..." && port !== "";
+    });
+
+    console.warn("NAT/PAT extrait avec succes. Nombre de regles :", configLivebox.natpat["règles IPv4"].length);
+
+    /* ========================================================================= */
+    /* 4. SAUVEGARDE ET FIN SILENCIEUSE                                          */
+    /* ========================================================================= */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    console.warn("Fin du module NAT/PAT.");
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_parefeu.js
+   ========================================== */
+
+/* --- /extraction/box3/extract_pare-feu.js --- */
+
+window.extraireParefeuBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[8/x] Extraction sur la page Pare-feu (Box 3)...");
+    console.warn("=================================================");
+
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    /* Fonction interne pour gerer la destruction des pop-ups de GWT */
+    const fermerPopupSiPresent = async () => {
+        let popupFerme = false;
+        for (let i = 0; i < 8; i++) {
+            let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+            if (popup && window.getComputedStyle(popup).display !== "none") {
+                let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+                for (let btn of boutons) {
+                    let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                    let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                    if (texteBtn === "oui" || titreBtn.startsWith("oui")) {
+                        btn.scrollIntoView({ block: "center" });
+                        btn.focus();
+                        ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                            btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                        });
+                        popupFerme = true;
+                        await attendrePause(1200);
+                        break;
+                    }
+                }
+            }
+            if (popupFerme) break;
+            await attendrePause(400); 
+        }
+    };
+
+    /* ========================================================================= */
+    /* 1. TECHNIQUE ANTI-LAG : ALLER-RETOUR (WIFI -> PARE-FEU)                   */
+    /* ========================================================================= */
+    console.warn("Passage temporaire par la page WiFi...");
+    window.location.hash = "#WIFIPlace:";
+    await attendrePause(1000);
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    console.warn("Retour sur la page Pare-feu...");
+    window.location.hash = "#FirewallPlace:";
+    await attendrePause(1000); 
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    /* ========================================================================= */
+    /* 2. ATTENTE DU FORMULAIRE                                                  */
+    /* ========================================================================= */
+    let conteneurPareFeu = await attendreElement("#gwtActivityPanel form", 5000);
+    if (!conteneurPareFeu) {
+        console.error("Echec: Page Pare-feu introuvable.");
+        return;
+    }
+
+    /* ========================================================================= */
+    /* 3. EXTRACTION DES DONNEES                                                 */
+    /* ========================================================================= */
+    console.warn("Extraction du Pare-feu en cours...");
+    
+    configLivebox.parefeu = configLivebox.parefeu || {};
+
+    /* -- Niveau de protection -- */
+    let radioProtectionCoche = document.querySelector("input[name='levelRadioButtons']:checked");
+    
+    if (radioProtectionCoche) {
+        /* On cherche le label associe a l'ID du bouton radio pour avoir le texte lisible */
+        let labelAssocie = document.querySelector('label[for="' + radioProtectionCoche.id + '"]');
+        configLivebox.parefeu["niveau de protection"] = labelAssocie ? (labelAssocie.innerText || labelAssocie.textContent).trim() : radioProtectionCoche.value;
+    } else {
+        configLivebox.parefeu["niveau de protection"] = "Introuvable";
+    }
+
+    /* -- Repondre au ping (Recherche approximative si present) -- */
+    let radioPingOn = document.querySelector("input[name*='ping'][value='on'], input[name*='Ping'][value='on']");
+    if (radioPingOn) {
+        configLivebox.parefeu["répondre au ping"] = radioPingOn.checked;
+    } else {
+        let checkboxPing = document.querySelector("input[type='checkbox'][name*='ping'], input[type='checkbox'][title*='ping']");
+        if (checkboxPing) {
+            configLivebox.parefeu["répondre au ping"] = checkboxPing.checked;
+        } else {
+            configLivebox.parefeu["répondre au ping"] = "Introuvable";
+        }
+    }
+
+    console.warn("Pare-feu extrait avec succes :", configLivebox.parefeu);
+
+    /* ========================================================================= */
+    /* 4. SAUVEGARDE ET FIN SILENCIEUSE                                          */
+    /* ========================================================================= */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    console.warn("Fin du module Pare-feu.");
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_routage.js
+   ========================================== */
+
+/* --- /extraction/box3/extract_routage.js --- */
+
+window.extraireRoutageBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[4/x] Extraction sur la page Routage (Box 3)...");
+    console.warn("=================================================");
+
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    /* ========================================================================= */
+    /* 1. NAVIGATION NATURELLE VIA LE MENU GAUCHE                                */
+    /* ========================================================================= */
+    console.warn("Recherche du menu 'Routage' dans la barre laterale...");
+    
+    let menuTrouve = false;
+    let elementsMenu = document.querySelectorAll("#gwtLeftMenuBar a, #gwtLeftMenuBar .gwt-Hyperlink, #gwtLeftMenuBar div.itemLink");
+    
+    for (let el of elementsMenu) {
+        let texteMenu = (el.innerText || el.textContent || "").trim().toLowerCase();
+        
+        if (texteMenu === "routage") {
+            console.warn("Menu 'Routage' trouve ! Simulation du clic...");
+            el.scrollIntoView({ block: "center" });
+            el.focus();
+            
+            ['mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+            });
+            
+            menuTrouve = true;
+            break;
+        }
+    }
+
+    if (!menuTrouve) {
+        console.warn("Menu introuvable par texte. Tentative via le hash de secours...");
+        window.location.hash = "#ROUTINGPlace:"; 
+    }
+
+    await attendrePause(1500); 
+
+    /* ========================================================================= */
+    /* 2. GESTION DU POP-UP DE CONFIRMATION DE SORTIE                            */
+    /* ========================================================================= */
+    let popupFerme = false;
+    for (let i = 0; i < 15; i++) {
+        let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+        
+        if (popup && window.getComputedStyle(popup).display !== "none") {
+            let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+            
+            for (let btn of boutons) {
+                let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                
+                if (texteBtn === "oui" || titreBtn.startsWith("oui")) {
+                    console.warn("Pop-up detecte. Validation de la sortie (Oui)...");
+                    btn.scrollIntoView({ block: "center" });
+                    btn.focus();
+                    
+                    ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                        btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                    });
+                    
+                    popupFerme = true;
+                    await attendrePause(1500);
+                    break;
+                }
+            }
+        }
+        if (popupFerme) break;
+        await attendrePause(400); 
+    }
+    
+    await attendreFinChargementGWT();
+
+    let conteneurRoutage = await attendreElement("#gwtActivityPanel form, #gwtActivityPanel table", 5000);
+    if (!conteneurRoutage) {
+        console.error("Echec: Page de routage introuvable.");
+        return;
+    }
+
+    configLivebox.routage = configLivebox.routage || {};
+
+    /* ========================================================================= */
+    /* 3. EXTRACTION DE LA TABLE DE ROUTAGE (PAR REGEX AMELIORE)                 */
+    /* ========================================================================= */
+    console.warn("Extraction de la table de routage en cours...");
+    
+    let tableDeRoutage = [];
+    let lignes = document.querySelectorAll("#gwtActivityPanel table tbody tr");
+    
+    for (let i = 0; i < lignes.length; i++) {
+        let cellules = lignes[i].querySelectorAll("td");
+        
+        if (cellules.length >= 4) {
+            let reseau = "", masque = "", passerelle = "", interfaceReseau = "", metrique = "", active = false;
+            let ips = [];
+            
+            for (let j = 0; j < cellules.length; j++) {
+                let txt = (cellules[j].innerText || cellules[j].textContent).trim();
+                let checkbox = cellules[j].querySelector("input[type='checkbox']");
+                
+                if (checkbox) {
+                    active = checkbox.checked;
+                }
+                
+                let txtLower = txt.toLowerCase();
+                
+                /* Analyse du contenu par Regex (Inclus 'default', 'par defaut' et format CIDR) */
+                if (/^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(txt) || txtLower === "default" || txtLower === "par défaut" || txtLower === "par defaut") {
+                    ips.push(txt);
+                } else if (/^\d+$/.test(txt)) {
+                    metrique = txt;
+                } else if (txt !== "" && txtLower !== "supprimer" && txtLower !== "modifier" && !/^\d+$/.test(txt)) {
+                    if (txtLower !== "oui" && txtLower !== "non") {
+                        interfaceReseau = txt;
+                    }
+                }
+            }
+            
+            /* Une route valide possede au moins 3 elements (Reseau/Default, Masque, Passerelle) */
+            if (ips.length >= 3) {
+                reseau = ips[0];
+                masque = ips[1];
+                passerelle = ips[2];
+                
+                tableDeRoutage.push({
+                    "Réseau de destination": reseau,
+                    "Masque du sous-réseau de destination": masque,
+                    "Passerelle": passerelle,
+                    "Interface": interfaceReseau || "LAN",
+                    "Métrique": metrique || "1",
+                    "Activé": active
+                });
+            }
+        }
+    }
+
+    configLivebox.routage["table de routage"] = tableDeRoutage;
+    console.warn("Routage extrait avec succes. Nombre de routes :", tableDeRoutage.length);
+
+    /* ========================================================================= */
+    /* 4. SAUVEGARDE                                                             */
+    /* ========================================================================= */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    console.warn("Fin du module Routage.");
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_vpn_nomade.js
+   ========================================== */
+
+/* --- /extraction/box3bis/extract_vpn_nomade.js --- */
+
+window.extraireVpnNomadeBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[9/x] Extraction sur la page VPN Nomade (Box 3)...");
+    console.warn("=================================================");
+
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    const fermerPopupSiPresent = async () => {
+        let popupFerme = false;
+        for (let i = 0; i < 8; i++) {
+            let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+            if (popup && window.getComputedStyle(popup).display !== "none") {
+                let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+                for (let btn of boutons) {
+                    let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                    let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                    if (texteBtn === "oui" || titreBtn.startsWith("oui") || texteBtn === "continuer") {
+                        btn.scrollIntoView({ block: "center" });
+                        btn.focus();
+                        ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                            btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                        });
+                        popupFerme = true;
+                        await attendrePause(1200);
+                        break;
+                    }
+                }
+            }
+            if (popupFerme) break;
+            await attendrePause(400); 
+        }
+    };
+
+    /* Fonction de lecture super-intelligente */
+    const lireApresLabel = (texteLabel) => {
+        let labels = document.querySelectorAll("#gwtActivityPanel div[class*='formItemLabel'], #gwtActivityPanel .gwt-Label");
+        for (let lbl of labels) {
+            if ((lbl.innerText || "").toLowerCase().trim().includes(texteLabel.toLowerCase())) {
+                let parent = lbl.parentElement;
+                if (parent) {
+                    /* Cas 1 : Champ editable (Input / Select) */
+                    let input = parent.querySelector("input:not([type='hidden']):not([disabled]), select");
+                    if (input) {
+                        if (input.tagName === "SELECT") return input.selectedIndex >= 0 ? input.options[input.selectedIndex].text.trim() : "";
+                        return input.value.trim();
+                    }
+                    /* Cas 2 : Input grisé */
+                    let inputDisabled = parent.querySelector("input[disabled]");
+                    if (inputDisabled) return inputDisabled.value.trim();
+                    
+                    /* Cas 3 : Texte brut dans une div voisine */
+                    let frere = lbl.nextElementSibling;
+                    if (frere) return (frere.innerText || frere.textContent).trim();
+                }
+            }
+        }
+        return "Introuvable";
+    };
+
+    /* ========================================================================= */
+    /* 1. NAVIGATION VERS VPN                                                    */
+    /* ========================================================================= */
+    console.warn("Passage temporaire par la page WiFi...");
+    window.location.hash = "#WIFIPlace:";
+    await attendrePause(1000);
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    console.warn("Navigation vers la page VPN...");
+    window.location.hash = "#VpnPlace:";
+    await attendrePause(1500); 
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    let conteneurVpn = await attendreElement("#gwtActivityPanel table.widgetTable", 5000);
+    if (!conteneurVpn) {
+        console.error("Echec: Tableaux VPN introuvables.");
+        return;
+    }
+
+    configLivebox.vpn = configLivebox.vpn || {};
+    configLivebox.vpn["nomade"] = { "comptes": [], "parametres avancés": {} };
+
+    /* ========================================================================= */
+    /* 2. IDENTIFICATION DE LA TABLE NOMADE ET BOUCLE SUR LES COMPTES            */
+    /* ========================================================================= */
+    let tables = document.querySelectorAll("#gwtActivityPanel table.widgetTable");
+    let tableNomade = tables.length > 1 ? tables[1] : tables[0]; 
+    
+    if (tableNomade) {
+        let selecteurBoutonModif = "img[title*='modifier'], img[title*='éditer']";
+        let nbComptes = tableNomade.querySelectorAll(selecteurBoutonModif).length;
+        
+        console.warn("⚠️ " + nbComptes + " compte(s) VPN Nomade trouve(s).");
+
+        for (let i = 0; i < nbComptes; i++) {
+            tables = document.querySelectorAll("#gwtActivityPanel table.widgetTable");
+            tableNomade = tables.length > 1 ? tables[1] : tables[0];
+            let btnModifier = tableNomade.querySelectorAll(selecteurBoutonModif)[i];
+            
+            if (btnModifier) {
+                console.warn(`Ouverture du compte nomade ${i + 1}/${nbComptes}...`);
+                btnModifier.scrollIntoView({ block: "center" });
+                
+                ['mousedown', 'mouseup', 'click'].forEach(evt => {
+                    btnModifier.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }));
+                });
+                
+                let formOuvert = await attendreElement("#gwtActivityPanel form", 5000);
+                await attendrePause(1000); 
+
+                if (formOuvert) {
+                    let compteConfig = {};
+                    
+                    let radioEtat = document.querySelector("input[name='vpnUserActivate']:checked");
+                    compteConfig["état de l'utilisateur"] = radioEtat && radioEtat.nextElementSibling ? radioEtat.nextElementSibling.innerText.trim().toLowerCase() : "désactivé";
+                    
+                    /* CORRECTION ICI : Double vérification pour le nom de l'utilisateur */
+                    let nomTrouve = lireApresLabel("nom de l'utilisateur");
+                    if (nomTrouve === "Introuvable") nomTrouve = lireApresLabel("utilisateur");
+                    compteConfig["nom de l'utilisateur"] = nomTrouve;
+
+                    compteConfig["mot de passe de l'utilisateur"] = lireApresLabel("mot de passe");
+                    compteConfig["logiciel VPN nomade"] = lireApresLabel("logiciel vpn");
+                    compteConfig["type VPN"] = lireApresLabel("type vpn");
+                    compteConfig["clé partagée nomade"] = lireApresLabel("clé");
+                    
+                    configLivebox.vpn["nomade"]["comptes"].push(compteConfig);
+
+                    /* --- PARAMETRES AVANCES --- */
+                    if (i === 0) {
+                        let btnAvances = document.querySelector("a[href*='#RoadWarriorVpnPlace'], a[title*='avancés']");
+                        if (!btnAvances) {
+                            let liens = document.querySelectorAll("#gwtActivityPanel a, #gwtActivityPanel .gwt-Hyperlink");
+                            for(let l of liens) {
+                                if((l.innerText || "").toLowerCase().includes("avancés")) { btnAvances = l; break; }
+                            }
+                        }
+                        
+                        if (btnAvances) {
+                            console.warn("Ouverture des parametres avances...");
+                            btnAvances.click();
+                            await attendreElement("#gwtActivityPanel select", 5000);
+                            await attendrePause(1000);
+                            
+                            const lireDansBloc = (motCle, bloc) => {
+                                let labels = bloc.querySelectorAll("div[class*='formItemLabel'], .gwt-Label");
+                                for (let lbl of labels) {
+                                    if ((lbl.innerText || "").toLowerCase().trim().includes(motCle.toLowerCase())) {
+                                        let parent = lbl.parentElement;
+                                        if (!parent) continue;
+                                        let input = parent.querySelector("input[type='text'], input[type='password'], select");
+                                        if (input) {
+                                            if (input.tagName === "SELECT") return input.selectedIndex >= 0 ? input.options[input.selectedIndex].text.trim() : "";
+                                            return input.value.trim();
+                                        }
+                                    }
+                                }
+                                return "Introuvable";
+                            };
+
+                            let paramAvances = {};
+                            let blocsAvances = document.querySelectorAll("#gwtActivityPanel form div[class*='pageSectionBorder'] > div[class*='formLayout']");
+                            
+                            if (blocsAvances.length >= 3) {
+                                paramAvances["allocation IP"] = lireDansBloc("allocation", blocsAvances[0]);
+                                paramAvances["accès Internet utilisateur"] = lireDansBloc("internet", blocsAvances[0]);
+                                paramAvances["adresse IP de début"] = lireDansBloc("début", blocsAvances[0]);
+                                paramAvances["adresse IP de fin"] = lireDansBloc("fin", blocsAvances[0]);
+                                
+                                paramAvances["IKE (phase 1)"] = {
+                                    "chiffrement": lireDansBloc("chiffrement", blocsAvances[1]),
+                                    "authentification": lireDansBloc("authentification", blocsAvances[1]),
+                                    "groupe Diffie Hellman": lireDansBloc("diffie", blocsAvances[1]),
+                                    "durée de session (en sec)": lireDansBloc("durée", blocsAvances[1])
+                                };
+
+                                paramAvances["IKE (phase 2)"] = {
+                                    "chiffrement": lireDansBloc("chiffrement", blocsAvances[2]),
+                                    "authentification": lireDansBloc("authentification", blocsAvances[2]),
+                                    "groupe PFS": lireDansBloc("pfs", blocsAvances[2]),
+                                    "durée de session (en sec)": lireDansBloc("durée", blocsAvances[2])
+                                };
+
+                                let checkDetection = blocsAvances[2].querySelector("input[type='checkbox']");
+                                if (checkDetection) {
+                                    paramAvances["IKE (phase 2)"]["détection de déconnexion"] = checkDetection.checked ? "activé" : "désactivé";
+                                }
+                            }
+                            
+                            configLivebox.vpn["nomade"]["parametres avancés"] = paramAvances;
+                            
+                            let btnRetourCompte = document.querySelector("a[title*='précédente'], button[title*='annuler']");
+                            if (btnRetourCompte) {
+                                btnRetourCompte.click();
+                                await fermerPopupSiPresent();
+                                await attendreElement("#gwtActivityPanel form", 5000);
+                            } else {
+                                window.history.back();
+                                await attendreElement("#gwtActivityPanel form", 5000);
+                            }
+                        }
+                    }
+                    
+                    let btnRetourListe = document.querySelector("a[title*='précédente'], button[title*='annuler']");
+                    if (btnRetourListe) {
+                        btnRetourListe.click();
+                        await fermerPopupSiPresent();
+                        await attendreElement("#gwtActivityPanel table.widgetTable", 5000);
+                    } else {
+                        window.location.hash = "#VpnPlace:";
+                        await attendreFinChargementGWT();
+                        await attendreElement("#gwtActivityPanel table.widgetTable", 5000);
+                    }
+                }
+            }
+        }
+    }
+
+    console.warn("VPN Nomade extrait avec succes !");
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_vpn_siteasite.js
+   ========================================== */
+
+/* --- /extraction/box3bis/extract_vpn_siteasite.js --- */
+
+window.extraireVpnSiteBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[10/x] Extraction sur la page VPN Site a Site (Box 3)...");
+    console.warn("=================================================");
+
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    const fermerPopupSiPresent = async () => {
+        let popupFerme = false;
+        for (let i = 0; i < 8; i++) {
+            let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+            if (popup && window.getComputedStyle(popup).display !== "none") {
+                let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+                for (let btn of boutons) {
+                    let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                    let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                    if (texteBtn === "oui" || titreBtn.startsWith("oui") || texteBtn === "continuer") {
+                        btn.scrollIntoView({ block: "center" });
+                        btn.focus();
+                        ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                            btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                        });
+                        popupFerme = true;
+                        await attendrePause(1200);
+                        break;
+                    }
+                }
+            }
+            if (popupFerme) break;
+            await attendrePause(400); 
+        }
+    };
+
+    /* Fonction de lecture ultime, capable de fouiller les divs voisins */
+    const lireChampGWT = (motCle, occurrence = 0, prendreValeur = false) => {
+        let matchs = [];
+        
+        /* 1. Recherche par attribut title (Le plus precis) */
+        let elements = document.querySelectorAll("#gwtActivityPanel input:not([type='hidden']), #gwtActivityPanel select");
+        for (let el of elements) {
+            let titre = (el.getAttribute("title") || "").toLowerCase();
+            if (titre.includes(motCle.toLowerCase())) {
+                if (el.tagName === "SELECT") {
+                    matchs.push(prendreValeur ? el.value : (el.selectedIndex >= 0 ? el.options[el.selectedIndex].text.trim() : ""));
+                } else {
+                    matchs.push(el.value !== undefined ? el.value.trim() : "");
+                }
+            }
+        }
+        
+        if (matchs.length > occurrence) return matchs[occurrence];
+
+        /* 2. Recherche par Label (Fouille approfondie des balises soeurs) */
+        matchs = []; 
+        let labels = document.querySelectorAll("#gwtActivityPanel div[class*='formItemLabel'], #gwtActivityPanel .gwt-Label, #gwtActivityPanel label");
+        for (let lbl of labels) {
+            if ((lbl.innerText || "").toLowerCase().trim().includes(motCle.toLowerCase())) {
+                let champTrouve = null;
+
+                /* A. Chercher dans le meme conteneur parent */
+                if (lbl.parentElement) {
+                    champTrouve = lbl.parentElement.querySelector("input:not([type='hidden']), select");
+                }
+
+                /* B. Chercher dans l'element frere suivant (cas de div separees) */
+                if (!champTrouve && lbl.nextElementSibling) {
+                    let frere = lbl.nextElementSibling;
+                    if (frere.tagName === "INPUT" || frere.tagName === "SELECT") {
+                        champTrouve = frere;
+                    } else {
+                        champTrouve = frere.querySelector("input:not([type='hidden']), select");
+                    }
+                }
+
+                /* C. Chercher dans le frere du parent (cas imbrique complexe) */
+                if (!champTrouve && lbl.parentElement && lbl.parentElement.nextElementSibling) {
+                    let oncle = lbl.parentElement.nextElementSibling;
+                    if (oncle.tagName === "INPUT" || oncle.tagName === "SELECT") {
+                        champTrouve = oncle;
+                    } else {
+                        champTrouve = oncle.querySelector("input:not([type='hidden']), select");
+                    }
+                }
+
+                if (champTrouve) {
+                    if (champTrouve.tagName === "SELECT") {
+                        matchs.push(prendreValeur ? champTrouve.value : (champTrouve.selectedIndex >= 0 ? champTrouve.options[champTrouve.selectedIndex].text.trim() : ""));
+                    } else {
+                        matchs.push(champTrouve.value.trim());
+                    }
+                } else {
+                    /* S'il n'y a pas d'input, c'est peut-etre juste du texte affiche */
+                    let frereTexte = lbl.nextElementSibling;
+                    if (frereTexte) matchs.push((frereTexte.innerText || frereTexte.textContent).trim());
+                }
+            }
+        }
+        
+        if (matchs.length > occurrence) return matchs[occurrence];
+        return "Introuvable";
+    };
+
+    /* ========================================================================= */
+    /* NAVIGATION VERS VPN                                                       */
+    /* ========================================================================= */
+    console.warn("Passage temporaire par la page WiFi...");
+    window.location.hash = "#WIFIPlace:";
+    await attendrePause(1000);
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    console.warn("Navigation vers la page VPN...");
+    window.location.hash = "#VpnPlace:";
+    await attendrePause(1500); 
+    await fermerPopupSiPresent(); 
+    await attendreFinChargementGWT();
+
+    let conteneurVpn = await attendreElement("#gwtActivityPanel table.widgetTable", 5000);
+    if (!conteneurVpn) {
+        console.error("Echec: Tableaux VPN introuvables.");
+        return;
+    }
+
+    configLivebox.vpn = configLivebox.vpn || {};
+    configLivebox.vpn["vpn site à site"] = [];
+
+    /* ========================================================================= */
+    /* BOUCLE SUR LES CONNEXIONS SITE A SITE                                     */
+    /* ========================================================================= */
+    let tables = document.querySelectorAll("#gwtActivityPanel table.widgetTable");
+    let tableSite = tables[0]; 
+    
+    if (tableSite) {
+        let selecteurBoutonModif = "img[title*='modifier'], img[title*='éditer']";
+        let nbComptes = tableSite.querySelectorAll(selecteurBoutonModif).length;
+        
+        console.warn("⚠️ " + nbComptes + " connexion(s) VPN Site a Site trouvee(s).");
+
+        for (let i = 0; i < nbComptes; i++) {
+            tables = document.querySelectorAll("#gwtActivityPanel table.widgetTable");
+            tableSite = tables[0];
+            let btnModifier = tableSite.querySelectorAll(selecteurBoutonModif)[i];
+            
+            if (btnModifier) {
+                console.warn(`Ouverture de la connexion ${i + 1}/${nbComptes}...`);
+                btnModifier.scrollIntoView({ block: "center" });
+                
+                ['mousedown', 'mouseup', 'click'].forEach(evt => {
+                    btnModifier.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }));
+                });
+                
+                let formOuvert = await attendreElement("#gwtActivityPanel form", 5000);
+                await attendrePause(1500); 
+
+                if (formOuvert) {
+                    let vpnConfig = {};
+                    
+                    /* --- ETAT D'ACTIVATION (Correction pour Checkbox) --- */
+                    let spanActiver = document.querySelector("span.gwt-RadioButton[title*='activer cette connexion']");
+                    vpnConfig["activé"] = spanActiver 
+                        ? spanActiver.querySelector("input[type='radio']").checked 
+                        : false;
+
+                    
+                    /* --- INFORMATIONS GENERALES --- */
+                    vpnConfig["nom VPN"] = lireChampGWT("nom de la connexion");
+                    vpnConfig["adresse IP du site distant"] = lireChampGWT("machine VPN distante");
+                    vpnConfig["équipement distant"] = lireChampGWT("équipement distant", 0, true);
+                    vpnConfig["clé partagée"] = lireChampGWT("clé partagée");
+                    
+                    /* --- RESEAUX --- */
+                    vpnConfig["réseau local"] = { 
+                        "ip": lireChampGWT("réseau local"), 
+                        "masque": lireChampGWT("masque", 0) 
+                    };
+
+                    vpnConfig["réseau distant"] = { 
+                        "ip": lireChampGWT("réseau distant"), 
+                        "masque": lireChampGWT("masque", 1) 
+                    };
+
+                    /* --- MODE DE TUNNEL --- */
+                    let modeTrouve = "Introuvable";
+                    let radiosMode = document.querySelectorAll("input[type='radio'][name*='Mode']:checked, input[type='radio'][name*='mode']:checked");
+                    if (radiosMode.length > 0 && radiosMode[0].nextElementSibling) {
+                        modeTrouve = radiosMode[0].nextElementSibling.innerText.trim().toLowerCase();
+                    } else {
+                        modeTrouve = lireChampGWT("mode");
+                    }
+                    vpnConfig["mode de configuration du tunnel"] = modeTrouve;
+                    
+                    configLivebox.vpn["vpn site à site"].push(vpnConfig);
+                    
+                    let btnRetourListe = document.querySelector("a[title*='précédente'], button[title*='annuler']");
+                    if (btnRetourListe) {
+                        btnRetourListe.click();
+                        await fermerPopupSiPresent();
+                        await attendreElement("#gwtActivityPanel table.widgetTable", 5000);
+                    } else {
+                        window.location.hash = "#VpnPlace:";
+                        await attendreFinChargementGWT();
+                        await attendreElement("#gwtActivityPanel table.widgetTable", 5000);
+                    }
+                }
+            }
+        }
+    }
+
+    console.warn("VPN Site a Site extrait avec succes !");
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box3\extract_wifi.js
+   ========================================== */
+
+/* --- /extraction/box3/extract_wifi.js --- */
+
+window.extraireWifiBox3 = async function(estRattrapage = false) {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, attendreFinChargementGWT, extraireTableau, CLE_STORAGE } = window;
+
+    console.warn("=================================================");
+    console.warn("[2/x] Extraction sur la page WiFi (Box 3)...");
+    console.warn("=================================================");
+
+    /* Conservation de la logique de rattrapage originale */
+    if (estRattrapage) {
+        simulerClic("#menu_home_hyperlink");
+        await attendrePause(1500);
+        await attendreFinChargementGWT();
+    }
+
+    /* ========================================================================= */
+    /* 1. NAVIGATION (ALLER-RETOUR) : HOME -> WIFI -> ROUTAGE -> WIFI            */
+    /* ========================================================================= */
+    
+    console.warn("Etape 1 : Passage par Accueil...");
+    simulerClic("#menu_home_hyperlink");
+    await attendrePause(1000);
+    await attendreFinChargementGWT();
+
+    console.warn("Etape 2 : Passage par WiFi...");
+    window.location.hash = "#WIFIPlace:";
+    await attendrePause(1000); 
+    await attendreFinChargementGWT();
+
+    console.warn("Etape 3 : Passage par Routage...");
+    window.location.hash = "#RoutingPlace:";
+    await attendrePause(1000); 
+    await attendreFinChargementGWT();
+
+    console.warn("Etape 4 : Retour sur WiFi pour extraction...");
+    window.location.hash = "#WIFIPlace:";
+    await attendrePause(1000); 
+    await attendreFinChargementGWT();
+
+    /* ========================================================================= */
+    /* 2. ATTENTE DU FORMULAIRE ET INITIALISATION                                */
+    /* ========================================================================= */
+    let formWifi = await attendreElement("#gwtActivityPanel form", 5000);
+    if (!formWifi) {
+        console.error("Echec: Formulaire WiFi introuvable.");
+        return;
+    }
+
+    configLivebox.wifi = configLivebox.wifi || {};
+    configLivebox.wifi.wifi2_4 = configLivebox.wifi.wifi2_4 || {
+        wps: {},
+        equipements_autorises: []
+    };
+    
+    if (!configLivebox.wifi.adresse_ip_internet) {
+        configLivebox.wifi.adresse_ip_internet = "Introuvable";
+    }
+
+    /* ========================================================================= */
+    /* 3. EXTRACTION ROBUSTE PAR ATTRIBUTS                                       */
+    /* ========================================================================= */
+    console.warn("Extraction des donnees WiFi en cours...");
+
+    let inputSSID = document.querySelector("input[title*='nom de la Livebox']");
+    configLivebox.wifi.ssid = inputSSID ? inputSSID.value.trim() : "Introuvable";
+
+    let radioLireMdpOn = document.querySelector("input[name='wifiKeyReadableGroup'][value='on']");
+    if (radioLireMdpOn && !radioLireMdpOn.checked) {
+        console.warn("Rendre la cle WiFi lisible...");
+        simulerClic("input[name='wifiKeyReadableGroup'][value='on']");
+        radioLireMdpOn.click();
+        await attendrePause(1000);
+        await attendreFinChargementGWT(); 
+    }
+
+    let inputMdp = document.querySelector("input[title*=\"clé d'accès WiFi\"][type='text']") || document.querySelector("input[title*=\"clé d'accès WiFi\"]");
+    configLivebox.wifi.mot_de_passe = inputMdp ? inputMdp.value.trim() : "Introuvable";
+
+    let selectMode = document.querySelector("select[title*='mode WiFi']");
+    configLivebox.wifi.wifi2_4.mode = selectMode && selectMode.selectedIndex >= 0 ? selectMode.options[selectMode.selectedIndex].text : "Introuvable";
+
+    let radioDiffOn = document.querySelector("input[name='broadCastSsid'][value='on']");
+    configLivebox.wifi.wifi2_4.diffusion_ssid = radioDiffOn ? radioDiffOn.checked : "Introuvable";
+
+    let radioEcranOn = document.querySelector("input[name='wifiKeyDisplayedRadio'][value='on']");
+    configLivebox.wifi.wifi2_4.afficher_cle_ecran = radioEcranOn ? radioEcranOn.checked : "Introuvable";
+
+    configLivebox.wifi.wifi2_4.wps = {};
+
+    let radioWpsStateOn = document.querySelector("input[name='wpsStateRadio'][value='on']");
+    configLivebox.wifi.wifi2_4.wps["état WPS"] = radioWpsStateOn ? radioWpsStateOn.checked : false;
+
+    let radioWpsAssocOn = document.querySelector("input[name='wpsAssociationRadio'][value='on']");
+    configLivebox.wifi.wifi2_4.wps["association WPS par écran"] = radioWpsAssocOn ? radioWpsAssocOn.checked : false;
+
+    let selectWpsMode = document.querySelector("select[title*=\"sélectionner le mode d'appairage\"]");
+    configLivebox.wifi.wifi2_4.wps["mode"] = selectWpsMode && selectWpsMode.selectedIndex >= 0 ? selectWpsMode.options[selectWpsMode.selectedIndex].text : "Introuvable";
+
+    let radioMacFilterOn = document.querySelector("input[name='macFilteringGroup'][value='on']");
+    configLivebox.wifi.wifi2_4.filtrage_mac = radioMacFilterOn ? radioMacFilterOn.checked : false;
+
+    let configurationColonnes = {
+        "nom_equipement": 0,
+        "adresse_mac": 1
+    };
+    
+    let donneesTableau = extraireTableau("#gwtActivityPanel table.widgetTable", configurationColonnes);
+    configLivebox.wifi.wifi2_4.equipements_autorises = donneesTableau.filter(eq => eq.nom_equipement !== "" && eq.adresse_mac !== "");
+
+    console.warn("Donnees extraites avec succes.");
+
+    /* ========================================================================= */
+    /* 4. SAUVEGARDE ET FIN SILENCIEUSE                                          */
+    /* ========================================================================= */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    
+    await attendrePause(500);
+    console.warn("Fin du module WiFi. Le module suivant prendra le relai de la navigation.");
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_acces_distance.js
+   ========================================== */
+
+/* --- /box4/extract_acces_distance.js --- */
+
+window.extraireAccesDistance = async function() {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement, 
+        attendreStabiliteDOM, 
+        lireValeurInput, 
+        lireEtat, 
+        CLE_STORAGE 
+    } = window;
+
+    /* --- BLOC 13 : Accès à distance --- */
+    console.log("⏳ [13/x] Extraction sur la page Accès à distance...");
+
+    configLivebox["accès à distance"] = {};
+
+    /* 1. Navigation vers "Mon compte" et attente dynamique */
+    simulerClic("#menu_myAccount_hyperlink");
+    await attendreElement("#menu_myAccount_distantaccess_hyperlink", 10000);
+
+    /* 2. Navigation vers "Accès à distance" */
+    simulerClic("#menu_myAccount_distantaccess_hyperlink");
+    
+    /* 3. Attendre l'apparition du bloc principal et sa stabilité (Plus de pause arbitraire !) */
+    let selecteurFormulaire = "#myAccount_remoteAccess_userSettingsSection_login";
+    let accesCharge = await attendreElement(selecteurFormulaire, 15000);
+    
+    if (accesCharge) {
+        /* On attend que GWT finisse d'injecter le mot de passe et l'identifiant */
+        await attendreStabiliteDOM("#myAccount_remoteAccess_userSettingsSection_mainBlock", 10000, 800);
+        
+        configLivebox["accès à distance"]["identifiant"] = lireValeurInput(selecteurFormulaire);
+        configLivebox["accès à distance"]["mot de passe"] = lireValeurInput("#myAccount_remoteAccess_userSettingsSection_password_passwordTextbox");
+        
+        let etatActif = lireEtat("#myAccount_remoteAccess_settingsConfiguration_radioPanel");
+        configLivebox["accès à distance"]["état"] = (etatActif === true) ? "activé" : (etatActif === false ? "désactivé" : "inconnu");
+        
+        configLivebox["accès à distance"]["port"] = lireValeurInput("#myAccount_remoteAccess_settingsConfiguration_port_textbox");
+
+        console.log("✅ Accès à distance extrait avec succès !");
+    } else {
+        console.warn("⚠️ Page Accès à distance introuvable ou non chargée.");
+        configLivebox["accès à distance"]["statut"] = "Non disponible";
+    }
+
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_accueil.js
+   ========================================== */
+
+/* --- /box4/extract_accueil.js --- */
+
+window.extraireAccueil = async function() {
+    const { configLivebox, simulerClic, attendreElement, attendrePause, CLE_STORAGE } = window;
+
+    /* --- BLOC 1 : ACCUEIL --- */
+    console.log("⏳ [1/x] Extraction sur la page Accueil...");
+    
+    simulerClic("#menu_home_hyperlink");
+
+    /* 1. Attente intelligente : On attend d'abord que le label de l'IP apparaisse dans le DOM */
+    await attendreElement("#homepage_ipAddress_label", 15000);
+
+    /* 2. Boucle d'attente dynamique pour s'assurer que la donnée est bien téléchargée du serveur */
+    console.log("⏳ En attente du chargement des données réseau...");
+    let donneesChargees = false;
+    let tentatives = 0;
+    
+    while (!donneesChargees && tentatives < 30) { /* Attendre max 15 secondes (30 * 500ms) */
+        let labelIp = document.querySelector("#homepage_ipAddress_label");
+        if (labelIp && labelIp.nextElementSibling) {
+            let texteIp = labelIp.nextElementSibling.innerText.trim();
+            /* Si le texte n'est plus vide ni en chargement (souvent représenté par '-' ou '...') */
+            if (texteIp !== "" && texteIp !== "-" && !texteIp.includes("...")) {
+                donneesChargees = true;
+                break;
+            }
+        }
+        await attendrePause(500);
+        tentatives++;
+    }
+
+    if(donneesChargees) {
+        console.log("✅ Données de la page d'accueil affichées à l'écran !");
+    } else {
+        console.warn("⚠️ Temps écoulé : Les données tardent à s'afficher, tentative d'extraction forcée.");
+    }
+
+    /* 3. Fonction de recherche ultra-robuste par mots-clés (Élimine tous les nth-child) */
+    function extraireInfoAccueil(motCleLabel) {
+        /* On cherche dans tous les blocs de paramètres de la page d'accueil */
+        let toutesLesDivs = document.querySelectorAll(".homeRight .home-block .params div");
+        for (let i = 0; i < toutesLesDivs.length; i++) {
+            let texte = toutesLesDivs[i].innerText || "";
+            if (texte.toLowerCase().includes(motCleLabel.toLowerCase())) {
+                /* La valeur se trouve dans la balise div immédiatement après le label */
+                let divValeur = toutesLesDivs[i].nextElementSibling;
+                if (divValeur && divValeur.innerText.trim() !== "") {
+                    return divValeur.innerText.trim();
+                }
+            }
+        }
+        return "Introuvable";
+    }
+
+    configLivebox.wifi = configLivebox.wifi || {};
+
+    /* Extraction du SSID */
+    let nomReseau = extraireInfoAccueil("SSID");
+    configLivebox.wifi.ssid = (nomReseau !== "Introuvable") ? nomReseau : extraireInfoAccueil("nom du réseau");
+    
+    /* Extraction du mot de passe via son ID unique repéré dans le DOM */
+    let labelMdpFinal = document.querySelector("#homepage_wifi_wep_label");
+    configLivebox.wifi.mot_de_passe = (labelMdpFinal && labelMdpFinal.nextElementSibling) ? labelMdpFinal.nextElementSibling.innerText.trim() : extraireInfoAccueil("clé d'accès");
+    
+    /* Pour l'IP, on utilise directement son ID unique repéré dans le DOM */
+    let labelIpFinal = document.querySelector("#homepage_ipAddress_label");
+    configLivebox.wifi.adresse_ip_internet = (labelIpFinal && labelIpFinal.nextElementSibling) ? labelIpFinal.nextElementSibling.innerText.trim() : "Introuvable";
+
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_airbox.js
+   ========================================== */
+
+/* --- /box4/extract_airbox.js --- */
+
+window.extraireAirbox = async function() {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement, 
+        attendrePause, 
+        lireEtat, 
+        CLE_STORAGE 
+    } = window;
+
+   
+    /* --- BLOC 12 : Air Box (Secours) --- */
+    console.log("⏳ [12/x] Extraction sur la page Air Box...");
+
+    /* 🛠️ Fonction de lecture ultra-sécurisée adaptée pour Select et Input */
+    const lireSecuriseAirbox = (selecteur) => {
+        let el = document.querySelector(selecteur);
+        if (!el) return "";
+        
+        /* Récupération du texte réel pour les listes déroulantes */
+        if (el.tagName === 'SELECT') {
+            return el.selectedIndex >= 0 ? el.options[el.selectedIndex].text.trim() : "";
+        }
+        
+        let val = (el.tagName === 'INPUT') ? el.value : (el.innerText || el.textContent);
+        return val ? String(val).trim() : "";
+    };
+
+    configLivebox.airbox = {};
+
+    /* 1. Navigation vers "Mes services" */
+    simulerClic("#menu_myServices_hyperlink");
+    await attendrePause(1500);
+
+    /* 2. Navigation vers "Airbox" (Security Box) */
+    simulerClic("#menu_myServices_securitybox_hyperlink");
+    
+    /* On attend l'apparition du bloc principal Airbox */
+    let airboxCharge = await attendreElement("#myServices_securityBox_serviceActivation_mainBlock", 10000);
+    
+    if (airboxCharge) {
+        await attendrePause(2000); /* Laisser le temps au GWT de peupler les champs */
+        
+        /* Astuce : Remplacement des classes dynamiques (GIB5...) par class*='formLayout' pour éviter la casse */
+        let selecteurEtatActivation = "#myServices_securityBox_serviceActivation_mainBlock > div[class*='formLayout'] > div > div:nth-child(3) > div";
+        
+        /* 3. Enregistrer l'état "activé" */
+        let radioEnable = document.querySelector("#myServices_securityBox_serviceActivation_enable_radioButton");
+        if (radioEnable) {
+            configLivebox.airbox["état"] = radioEnable.checked ? "activé" : "désactivé";
+        } else {
+            let texteEtat = lireSecuriseAirbox(selecteurEtatActivation).toLowerCase();
+            configLivebox.airbox["état"] = (texteEtat.includes("activé") || texteEtat.includes("oui")) ? "activé" : "désactivé";
+        }
+
+        /* 4. Cliquer sur le bouton radio 'Activer' s'il n'est pas coché pour FORCER l'affichage des paramètres */
+        if (radioEnable && !radioEnable.checked) {
+            console.log("👉 Forçage de l'ouverture du formulaire Airbox...");
+            radioEnable.click();
+            simulerClic("#myServices_securityBox_serviceActivation_enable_radioButton");
+            await attendrePause(1500); /* Attendre que le panneau se déplie */
+        }
+
+        /* 5 à 11. Copie des champs principaux et listes déroulantes */
+        configLivebox.airbox["mot de passe administrateur"] = lireSecuriseAirbox("#myServices_securitybox_airbox_configuration_settings_password_textbox");
+        configLivebox.airbox["code pin"] = lireSecuriseAirbox("#myServices_securitybox_airbox_configuration_settings_pin_textbox");
+        configLivebox.airbox["identifiant de carte SIM"] = lireSecuriseAirbox("#myServices_securitybox_advancedSettings_simCard_textbox");
+        configLivebox.airbox["mode réseau"] = lireSecuriseAirbox("#myServices_securitybox_advancedSettings_networkMode_combobox");
+        configLivebox.airbox["réduction d'interférences"] = lireSecuriseAirbox("#myServices_securitybox_advancedSettings_reducer_combobox");
+        configLivebox.airbox["activer l'accès de secours après"] = lireSecuriseAirbox("#myServices_securitybox_advancedSettings_enable_timeAfter_combobox");
+        configLivebox.airbox["désactiver l'accès de secours après"] = lireSecuriseAirbox("#myServices_securitybox_advancedSettings_disable_timeAfter_combobox");
+
+        /* 12. Enregistrer l'état "reprise des paramètres WiFi" */
+        let selecteurWifiRestore = "#myServices_securitybox_advancedSettings_wifi_restore_radioPanel > div[class*='formItemInput']";
+        let etatWifi = lireEtat(selecteurWifiRestore);
+        configLivebox.airbox["reprise des paramètres WiFi"] = (etatWifi === true) ? "activé" : (etatWifi === false ? "désactivé" : "inconnu");
+
+        /* 13 à 15. Copie des paramètres APN */
+        configLivebox.airbox["nom de l'APN"] = lireSecuriseAirbox("#myServices_securitybox_advancedSettings_apn_name_textbox");
+        configLivebox.airbox["identifiant APN"] = lireSecuriseAirbox("#myServices_securitybox_advancedSettings_apn_username_textbox");
+        configLivebox.airbox["mot de passe APN"] = lireSecuriseAirbox("#myServices_securitybox_advancedSettings_apn_password_passwordTextbox");
+
+        console.log("✅ Données Air Box extraites avec succès !");
+
+    } else {
+        console.warn("⚠️ Page Air Box introuvable ou non chargée.");
+        configLivebox.airbox["statut"] = "Non disponible";
+    }
+
+    console.log("⏳ Astuce : Déclenchement forcé de la pop-up de sortie...");
+    
+    /* On clique virtuellement sur Pare-feu pour faire réagir la box */
+    simulerClic("#menu_home_hyperlink"); 
+    
+    /* On surveille l'apparition du bouton OUI pendant 3 secondes */
+    let popUpOui = await attendreElement("#confirm_button", 3000);
+    if (popUpOui) {
+        console.log("⚠️ Pop-up de sortie détectée ! Clic sur OUI...");
+        popUpOui.click();
+        simulerClic("#confirm_button");
+        await attendrePause(2000); /* Pause vitale pour laisser la page Pare-feu charger */
+    }
+
+    /* Sauvegarde globale */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_dhcp_dns.js
+   ========================================== */
+
+/* --- /box4/extract_dhcp_dns.js --- */
+
+window.extraireDhcpDns = async function(estRattrapage = false) {
+    const { 
+        configLivebox, 
+        attendreElement, 
+        lireEtat, 
+        lireValeurInput, 
+        extraireTableau, 
+        CLE_STORAGE 
+    } = window;
+
+
+    /* --- BLOC 3 : DHCP & DNS --- */
+    console.log("⏳ [3/3] Extraction sur la page DHCP/DNS...");
+
+    if (estRattrapage) {
+        console.log("🔄 Mode tentative activé : Passage par le menu Wi-Fi d'abord...");
+        simulerClic("#homepage_wifi_configuration_hyperlink");
+        await attendrePause(1000); 
+    }
+
+    let popupFerme = false;
+    for (let i = 0; i < 15; i++) {
+        let popup = document.querySelector(".PopinCss-popinPanel, .popupContent");
+        
+        if (popup && window.getComputedStyle(popup).display !== "none") {
+            let boutons = popup.querySelectorAll(".gwt-Anchor, .gwt-Button, div[role='button'], a[title]");
+            
+            for (let btn of boutons) {
+                let texteBtn = (btn.innerText || btn.textContent || "").trim().toLowerCase();
+                let titreBtn = (btn.getAttribute("title") || "").trim().toLowerCase();
+                
+                if (texteBtn === "oui" || titreBtn.startsWith("oui")) {
+                    btn.scrollIntoView({ block: "center" });
+                    btn.focus();
+                    
+                    ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(function(type) {
+                        btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                    });
+                    
+                    btn.click();
+                    popupFerme = true;
+                    await attendrePause(1500);
+                    break;
+                }
+            }
+        }
+        if (popupFerme) break;
+        await attendrePause(400); 
+    }
+    
+    await attendreElement("#network_dhcp_configuration_serverState_radioPanel", 10000);
+
+    configLivebox.dhcp_dns["état du serveur DHCP"] = lireEtat("#network_dhcp_configuration_serverState_radioPanel");
+    configLivebox.dhcp_dns["adresse IP du LAN"] = lireValeurInput("#network_dhcp_configuration_ipLanAddress_textbox");
+    configLivebox.dhcp_dns["masque de sous-réseau du LAN"] = lireValeurInput("#network_dhcp_configuration_subnetMask_textbox");
+    configLivebox.dhcp_dns["adresse IP de début"] = lireValeurInput("#network_dhcp_configuration_ipAddress_start_textbox");
+    configLivebox.dhcp_dns["adresse IP de fin"] = lireValeurInput("#network_dhcp_configuration_ipAddress_end_textbox");
+    configLivebox.dhcp_dns["mode DNS"] = lireValeurInput("#network_dhcp_configuration_modeDNS_combobox");
+    
+    /*  Sélecteur direct pour le tableau des baux statiques */
+    let selecteurTableauDHCP = "#network_dhcp_staticAddressesSection_mainBlock table";
+    await attendreElement(selecteurTableauDHCP, 5000);
+
+    configLivebox.dhcp_dns["Baux DHCP statiques"] = extraireTableau(
+        selecteurTableauDHCP,
+        { 
+            "Équipement": 0, 
+            "Adresse IP statique": 1, 
+            "Adresse MAC": 2 
+        }
+    );
+
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_dmz.js
+   ========================================== */
+
+/* --- /box4/extract_dmz.js --- */
+
+window.extraireDmz = async function(estRattrapage = false) {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement, 
+        attendrePause,
+        extraireTableau, 
+        CLE_STORAGE 
+    } = window;
+
+    /* --- BLOC 7 : DMZ --- */
+    console.log("⏳ [7/x] Extraction sur la page DMZ...");
+    
+    if (estRattrapage) {
+        console.log("🔄 Mode tentative activé : Passage par le menu Wi-Fi d'abord...");
+        simulerClic("#homepage_wifi_configuration_hyperlink");
+        await attendrePause(1000); 
+    }
+
+    simulerClic("#menu_menuNetwork_dmz_hyperlink");
+
+    let selecteurTableauDMZ = "#network_dmz_addressTable_panel table";
+    await attendreElement(selecteurTableauDMZ, 10000);
+
+    configLivebox.dmz = configLivebox.dmz || {};
+
+    let equipementsBruts = extraireTableau(
+        selecteurTableauDMZ,
+        {
+            "Équipement": 0,
+            "Adresse IP statique": 1
+        }
+    );
+
+    let equipementsNettoyes = equipementsBruts.filter(eq => {
+        let nom = (eq["Équipement"] || "").trim().toLowerCase();
+        return nom !== "" && nom !== "<équipement>" && !nom.includes("aucun");
+    });
+
+    if (equipementsNettoyes.length > 0) {
+        configLivebox.dmz["équipements"] = equipementsNettoyes;
+    } else {
+        delete configLivebox.dmz["équipements"];
+        console.log("ℹ️ Aucun équipement DMZ détecté. Section laissée vide.");
+    }
+
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_dyndns.js
+   ========================================== */
+
+/* --- /box4/extract_dyndns.js --- */
+
+window.extraireDyndns = async function(estRattrapage = false) {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement,
+        attendrePause,
+        attendreStabiliteDOM, 
+        lireEtat, 
+        lireValeurInput, 
+        CLE_STORAGE 
+    } = window;
+
+    console.log("⏳ [4/x] Extraction sur la page DynDNS...");
+
+    if (estRattrapage) {
+        console.log("🔄 Mode tentative activé : Passage par le menu Wi-Fi d'abord...");
+        simulerClic("#homepage_wifi_configuration_hyperlink");
+        await attendrePause(1000); 
+    }
+    
+    /* Navigation vers la page DynDNS */
+    simulerClic("#menu_menuNetwork_dyndns_hyperlink");
+
+    /* Utilisation d'un sélecteur robuste */
+    let blocFormulaire = "#network_dyndns_mainBlock div[class*='formLayout']";
+    await attendreElement(blocFormulaire, 15000);
+    
+    /* ========================================================================= */
+    /* Attente SPÉCIFIQUE pour le menu déroulant "nom DNS"                       */
+    /* ========================================================================= */
+    console.log("⏳ Attente du chargement de la liste des noms DNS...");
+    
+    let selecteurSelectDNS = "select[title*='nom de host spécifique']";
+    await attendreElement(selecteurSelectDNS, 10000);
+    
+    let selectDNS = document.querySelector(selecteurSelectDNS);
+    if (selectDNS) {
+        let tentatives = 0;
+        while (selectDNS.options.length <= 1 && tentatives < 16) {
+            await attendrePause(500);
+            tentatives++;
+        }
+        console.log("✅ Liste DNS chargée avec " + selectDNS.options.length + " option(s).");
+    }
+
+    await attendreStabiliteDOM(blocFormulaire, 15000, 1000);
+
+    /* ========================================================================= */
+    /* EXTRACTION DES DONNÉES                                                    */
+    /* ========================================================================= */
+    configLivebox.dyndns = configLivebox.dyndns || {};
+
+    configLivebox.dyndns["activé"] = lireEtat(blocFormulaire + " > div:nth-child(1)");
+    
+    configLivebox.dyndns["nom DNS"] = lireValeurInput(selecteurSelectDNS);
+    
+    if (!configLivebox.dyndns["nom DNS"] || configLivebox.dyndns["nom DNS"] === "Introuvable") {
+         configLivebox.dyndns["nom DNS"] = lireValeurInput(blocFormulaire + " > div:nth-child(2) select");
+    }
+    
+    let elemNomHote = document.querySelector(blocFormulaire + " > div:nth-child(3) div[class*='formItemInput']");
+    configLivebox.dyndns["nom de hôte complet"] = elemNomHote ? (elemNomHote.innerText || elemNomHote.textContent).trim() : "";
+
+    /* ========================================================================= */
+    /* EXTRACTION DU TABLEAU AVEC RÉCUPÉRATION DU 'TITLE'           */
+    /* ========================================================================= */
+    let selecteurTableauDynDNS = "#network_dyndns_mainBlock div[class*='pageSectionBorder'] table.widgetTable, #gwtActivityPanel form table.widgetTable";
+    let tableauDynDNS = document.querySelector(selecteurTableauDynDNS);
+    let dynDnsExtraits = [];
+
+    if (tableauDynDNS) {
+        let lignesTableau = tableauDynDNS.querySelectorAll("tbody > tr");
+        
+        for (let ligne of lignesTableau) {
+            let cellules = ligne.querySelectorAll("td");
+            /* Vérifier que c'est bien une ligne de données (au moins 6 colonnes) */
+            if (cellules.length >= 6) {
+                let serviceText = cellules[0].innerText.trim();
+                
+                /* Ignorer les lignes d'en-tête ou vides */
+                if (!serviceText || serviceText.toLowerCase() === "service") continue; 
+
+                /* 1. Récupération intelligente du nom de domaine via l'attribut 'title' */
+                let divNom = cellules[1].querySelector("div[title]");
+                let nomComplet = divNom ? divNom.getAttribute("title").trim() : cellules[1].innerText.trim();
+
+                let identifiant = cellules[2].innerText.trim();
+                let motDePasse = cellules[3].innerText.trim(); // Restera "******" à cause du serveur
+
+                /* 2. Lecture de l'état du Toggle (Activer) */
+                let htmlActiver = cellules[5].innerHTML.toLowerCase();
+                let actif = htmlActiver.includes("switch_on") || htmlActiver.includes("checked");
+
+                dynDnsExtraits.push({
+                    "Service": serviceText,
+                    "Nom d'hôte/de domaine": nomComplet,
+                    "Identifiant": identifiant,
+                    "Mot de passe": motDePasse,
+                    "Activer": actif
+                });
+            }
+        }
+    }
+
+    configLivebox.dyndns["DynDNS externes"] = dynDnsExtraits;
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    console.log("✅ Données DynDNS extraites :", dynDnsExtraits);
+
+    /* ========================================================================= */
+    /* GESTION DE LA POP-UP                                                      */
+    /* ========================================================================= */
+    console.log("⏳ Déclenchement forcé de la pop-up de sortie...");
+    simulerClic("#menu_menuNetwork_natpat_hyperlink");
+    
+    let btnConfirm = await attendreElement("#confirm_button", 4000);
+    if (btnConfirm) {
+        console.log("⚠️ Pop-up de sortie détectée ! Clic sur OUI...");
+        btnConfirm.click();
+        simulerClic("#confirm_button");
+        
+        let intervalNettoyage = setInterval(() => {
+            let overlayBox = document.querySelector(".popinGlass, .glassPanel");
+            if(!overlayBox) clearInterval(intervalNettoyage);
+        }, 200);
+        await attendrePause(1000); 
+    }
+
+    let elementsBloquants = document.querySelectorAll("div[class*='popinPanel'], div[class*='glassPanel'], div[class*='popinGlass']");
+    if (elementsBloquants.length > 0) {
+        elementsBloquants.forEach(element => {
+            element.style.pointerEvents = "none";
+            element.style.display = "none";
+            element.remove();
+        });
+    }
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_main.js
+   ========================================== */
+
+/* --- /box4/extract_main.js --- */
+
+window.executerExtractionBox4 = async function() {
+    const MAX_TENTATIVES_RATTRAPAGE = 2; 
+
+    /* Nettoyage du stockage local avant de commencer */
+    if (window.CLE_STORAGE) {
+        localStorage.removeItem(window.CLE_STORAGE);
+    } else {
+        localStorage.removeItem("livebox_migration_config");
+    }
+    
+    window.configLivebox = { 
+        "wifi": {}, "dhcp_dns": {}, "natpat": {}, "dyndns": {},
+        "dmz": {}, "routage": {}, "parefeu": {}, "vpn": {},
+        "accès à distance" : {}, "airbox" : {}
+    };
+
+    try {
+        window.ExtractUI.injecter();
+        const TOTAL_ETAPES = 12; 
+        let modulesEnEchec = [];
+
+        async function executerModuleNormal(etape, nomModule, fonctionExecution, fonctionValidation) {
+            window.ExtractUI.majNormal(etape, TOTAL_ETAPES, nomModule);
+            try {
+                if (typeof fonctionExecution === "function") await fonctionExecution(false);
+                
+                let estValide = true;
+                if (typeof fonctionValidation === "function") estValide = fonctionValidation();
+
+                if (!estValide) {
+                    console.warn(`⚠️ Données vides pour [${nomModule}].`);
+                    modulesEnEchec.push({ etape, nomModule, fonctionExecution, fonctionValidation });
+                } else {
+                    console.log(`✅ Module [${nomModule}] réussi.`);
+                }
+            } catch (erreur) {
+                console.error(`❌ Erreur pendant [${nomModule}] :`, erreur);
+                modulesEnEchec.push({ etape, nomModule, fonctionExecution, fonctionValidation });
+            }
+        }
+
+        /* Utilisation du système de vérification externalisé */
+        const Verif = window.ExtractVerification || {};
+
+        /* ====================================================================================== */
+        /* PHASE 1 : EXÉCUTION DES MODULES BOX 4                                                  */
+        /* ====================================================================================== */
+        await executerModuleNormal(1, "Accueil", window.extraireAccueil, Verif.validerAccueil);
+        await executerModuleNormal(2, "Réseaux Wi-Fi", window.extraireWifi, Verif.validerWifi);
+        await executerModuleNormal(3, "Réseau Local (DHCP & DNS)", window.extraireDhcpDns, Verif.validerDhcpDns);
+        await executerModuleNormal(4, "DynDNS", window.extraireDyndns, Verif.validerDyndns);
+        await executerModuleNormal(5, "NAT / PAT", window.extraireNatpat, Verif.validerNatpat);
+        await executerModuleNormal(6, "Table de Routage", window.extraireRoutage, Verif.validerRoutage);
+        await executerModuleNormal(7, "Équipements DMZ", window.extraireDmz, Verif.validerDmz);
+        await executerModuleNormal(8, "VPN Site à Site", window.extraireVpnSite, Verif.validerVpnSite);
+        await executerModuleNormal(9, "VPN Nomade", window.extraireVpnNomade, Verif.validerVpnNomade);
+        await executerModuleNormal(10, "Règles Pare-feu", window.extraireParefeu, Verif.validerParefeu);
+        await executerModuleNormal(11, "Accès à distance", window.extraireAccesDistance, Verif.validerAccesDistance);
+        await executerModuleNormal(12, "Air Box (Secours)", window.extraireAirbox, Verif.validerAirbox);
+
+        /* ====================================================================================== */
+        /* PHASE 2 : RATTRAPAGE                                                                   */
+        /* ====================================================================================== */
+        let echecsDefinitifs = [];
+        if (modulesEnEchec.length > 0) {
+            for (let mod of modulesEnEchec) {
+                let succesRattrapage = false;
+                for (let tentative = 1; tentative <= MAX_TENTATIVES_RATTRAPAGE; tentative++) {
+                    window.ExtractUI.majTentative(mod.nomModule, tentative, MAX_TENTATIVES_RATTRAPAGE);
+                    if (typeof window.simulerClic === "function" && typeof window.attendrePause === "function") {
+                        window.simulerClic("#menu_home_hyperlink"); 
+                        await window.attendrePause(1500);
+                    }
+                    try {
+                        await mod.fonctionExecution(true);
+                        if (mod.fonctionValidation()) {
+                            succesRattrapage = true;
+                            break; 
+                        }
+                    } catch(e) {
+                        console.error(`❌ Échec tentative ${tentative} :`, e);
+                    }
+                }
+                if (!succesRattrapage) echecsDefinitifs.push(mod.nomModule);
+            }
+        }
+
+        /* ====================================================================================== */
+        /* PHASE 3 : TÉLÉCHARGEMENT FINAL                                                         */
+        /* ====================================================================================== */
+        if (typeof window.extraireFin === "function") {
+            await window.extraireFin();
+        }
+        window.ExtractUI.succes(echecsDefinitifs);
+
+    } catch (erreur) {
+        console.error("❌ Erreur :", erreur);
+        if (window.ExtractUI) window.ExtractUI.erreur(erreur.message);
+    }
+};
+
+/* ========================================================================= */
+/* AUTO-LOADER : CHARGE LES COMMUNS PUIS LES MODULES LOCAUX BOX 4            */
+/* ========================================================================= */
+(async function() {
+    let baseUrlBox4 = "";
+    
+    if (document.currentScript && document.currentScript.src) {
+        baseUrlBox4 = document.currentScript.src.substring(0, document.currentScript.src.lastIndexOf('/'));
+    } else {
+        let scripts = document.getElementsByTagName("script");
+        for (let s of scripts) {
+            if (s.src && s.src.includes("box4/extract_main.js")) {
+                baseUrlBox4 = s.src.substring(0, s.src.lastIndexOf('/'));
+                break;
+            }
+        }
+    }
+    
+    if (!baseUrlBox4) baseUrlBox4 = "http://127.0.0.1:5500/extraction/box4";
+    
+    let extractionUrl = baseUrlBox4.substring(0, baseUrlBox4.lastIndexOf('/'));
+    
+    let rootUrl = baseUrlBox4;
+    if (baseUrlBox4.includes("/extraction/box4")) {
+        rootUrl = baseUrlBox4.replace("/extraction/box4", "");
+    } else if (baseUrlBox4.includes("/box4")) {
+        rootUrl = baseUrlBox4.replace("/box4", "");
+    } else {
+        rootUrl = "http://127.0.0.1:5500";
+    }
+
+    const chargerScript = async (url) => {
+        return new Promise((resolve) => {
+            let script = document.createElement('script');
+            script.src = url + "?v=" + Date.now();
+            script.onload = resolve;
+            script.onerror = () => { console.warn("Fichier introuvable :", url); resolve(); }; 
+            document.head.appendChild(script);
+        });
+    };
+
+    await chargerScript(extractionUrl + "/extract_ui.js");
+    await chargerScript(extractionUrl + "/extract_utils.js");
+
+    // ✅ Nouveau: obfuscation locale (fallback sans CryptoJS/CDN)
+    await chargerScript(extractionUrl + "/obfuscation.js");
+
+    await chargerScript(extractionUrl + "/extract_fin.js");
+    await chargerScript(rootUrl + "/outil/verification.js"); 
+
+    if (window.ExtractVerification && typeof window.ExtractVerification.verifierEnvironnement === "function") {
+        let environnementOk = await window.ExtractVerification.verifierEnvironnement(false);
+        if (!environnementOk) return;
+    }
+
+    await chargerScript(baseUrlBox4 + "/extract_verification.js");
+
+    const modulesBox4 = [
+        "extract_accueil.js", "extract_wifi.js", "extract_dhcp_dns.js",
+        "extract_dyndns.js", "extract_natpat.js", "extract_routage.js",
+        "extract_dmz.js", "extract_vpn_siteasite.js", "extract_vpn_nomade.js",
+        "extract_pare-feu.js", "extract_acces_distance.js", "extract_airbox.js"
+    ];
+
+    for (let mod of modulesBox4) {
+        await chargerScript(baseUrlBox4 + "/" + mod);
+    }
+
+    if (typeof window.executerExtractionBox4 === "function") {
+        window.executerExtractionBox4();
+    }
+})();
+
+
+/* ==========================================
+   FICHIER : box4\extract_natpat.js
+   ========================================== */
+
+/* --- /box4/extract_natpat.js --- */
+
+window.extraireNatpat = async function(estRattrapage = false) {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement, 
+        attendreStabiliteDOM, 
+        extraireTableau, 
+        CLE_STORAGE 
+    } = window;
+
+
+    /* --- BLOC 4 : NAT/PAT --- */
+    console.log("⏳ [4/x] Extraction sur la page NAT/PAT...");
+
+    if (estRattrapage) {
+        console.log("🔄 Mode tentative activé : Passage par le menu Wi-Fi d'abord...");
+        simulerClic("#homepage_wifi_configuration_hyperlink");
+        await attendrePause(1000); 
+    }
+    
+    console.log("🔄 Exécution de la technique Aller-Retour (NAT/PAT -> Wi-Fi -> NAT/PAT)...");
+
+    simulerClic("#menu_menuNetwork_natpat_hyperlink");
+    await attendreElement("#network_natPat_IPv4Section_mainBlock", 10000);
+
+    simulerClic("#homepage_wifi_configuration_hyperlink");
+    await attendreElement("#network_wifi_activation_difference_radioPanel", 10000);
+
+    simulerClic("#menu_menuNetwork_natpat_hyperlink");
+    
+    /* 🛡️ REFACTOR : Recherche de la table directement dans le bloc IPv4 */
+    let selecteurTableauNAT = "#network_natPat_IPv4Section_mainBlock table";
+
+    await attendreElement(selecteurTableauNAT, 15000);
+    console.log("⏳ Attente de la stabilité du tableau NAT/PAT...");
+    await attendreStabiliteDOM(selecteurTableauNAT, 20000, 1000); 
+
+    configLivebox.natpat = configLivebox.natpat || {};
+
+    configLivebox.natpat["règles IPv4"] = extraireTableau(
+        selecteurTableauNAT,
+        {
+            "Activé": 7,
+            "Application/Service": 0,
+            "Port interne": 5,
+            "Port externe": 4,
+            "Protocole": 1,
+            "Équipement": 6,
+            "IP externe": 2
+        }
+    );
+
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    console.log("✅ NAT/PAT extrait avec succès !");
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_pare-feu.js
+   ========================================== */
+
+/* --- /box4/extract_pare-feu.js --- */
+
+window.extraireParefeu = async function(estRattrapage = false) {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement, 
+        lireEtat, 
+        CLE_STORAGE 
+    } = window;
+
+
+    console.log("⏳ [10/x] Extraction sur la page Pare-feu...");
+
+    if (estRattrapage) {
+        console.log("🔄 Mode tentative activé : Passage par le menu Wi-Fi d'abord...");
+        simulerClic("#homepage_wifi_configuration_hyperlink");
+        await attendrePause(1000); 
+    }
+
+    /* 1. Navigation vers la page Pare-feu */
+    simulerClic("#menu_menuNetwork_firewall_hyperlink");
+
+    let selecteurRadiosPareFeu = "#network_firewall_protectionSection_mainBlock input[type='radio']";
+    await attendreElement(selecteurRadiosPareFeu, 30000);
+
+    configLivebox.parefeu = configLivebox.parefeu || {};
+
+    /* 3. Extraire le niveau de protection (Gestion spécifique pour les boutons radio) */
+    let radioProtectionCoche = document.querySelector("#network_firewall_protectionSection_mainBlock input[type='radio']:checked");
+    
+    if (radioProtectionCoche) {
+        /* Trouver le texte lisible (label) associé au bouton radio sélectionné */
+        let labelAssocie = document.querySelector('label[for="' + radioProtectionCoche.id + '"]');
+        configLivebox.parefeu["niveau de protection"] = labelAssocie ? (labelAssocie.innerText || labelAssocie.textContent).trim() : radioProtectionCoche.value;
+    } else {
+        configLivebox.parefeu["niveau de protection"] = "Inconnu";
+    }
+
+    /* Extraire la réponse au ping */
+    configLivebox.parefeu["répondre au ping"] = lireEtat("#network_firewall_ping_answerPing_radioPanel");
+
+    /* 4. Sauvegarder les nouvelles données dans le localStorage */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+    
+    console.log("✅ Pare-feu extrait avec succès !");
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_routage.js
+   ========================================== */
+
+/* --- /box4/extract_routage.js --- */
+
+window.extraireRoutage = async function(estRattrapage = false) {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement, 
+        attendreStabiliteDOM, 
+        extraireTableau, 
+        CLE_STORAGE 
+    } = window;
+
+    /* --- BLOC 6 : ROUTAGE --- */
+    console.log("⏳ [6/x] Extraction sur la page Routage...");
+
+    if (estRattrapage) {
+        console.log("🔄 Mode tentative activé : Passage par le menu Wi-Fi d'abord...");
+        simulerClic("#homepage_wifi_configuration_hyperlink");
+        await attendrePause(1000); 
+    }
+
+    simulerClic("#menu_menuNetwork_routing_hyperlink");
+    
+    let conteneurRoutage = "#gwtActivityPanel form";
+    
+    /*  REFACTOR ANTI-LAG : On cible spécifiquement la VRAIE table de données repérée dans votre capture d'écran */
+    let selecteurVraieTable = conteneurRoutage + " table[class*='widgetTable']";
+    
+    /* 1. On attend l'apparition physique de la vraie table (15s max pour la 3G) */
+    let tablePrete = await attendreElement(selecteurVraieTable, 15000);
+
+    /* 2. Logique Aller-Retour si GWT bloque ou si la table ne charge pas du tout */
+    if (!tablePrete) {
+        console.log("🔄 Table de routage introuvable ou réseau très lent. Exécution de la technique Aller-Retour...");
+        simulerClic("#menu_menuNetwork_wifi_hyperlink"); 
+        await attendreElement("#network_wifi_activation_difference_radioPanel", 15000);
+        
+        simulerClic("#menu_menuNetwork_routing_hyperlink");
+        /* On redonne 20 secondes au réseau lent pour afficher la widgetTable */
+        await attendreElement(selecteurVraieTable, 20000);
+    }
+
+    console.log("⏳ Attente intelligente du remplissage des données de Routage...");
+    /* 3. La table est là, on attend maintenant que GWT ait fini d'y injecter les lignes d'IP.
+       J'ai monté la durée de calme à 600ms pour être robuste face aux latences 3G extrêmes. */
+    await attendreStabiliteDOM(conteneurRoutage, 20000, 600);
+
+    configLivebox.routage = configLivebox.routage || {};
+
+    /* 4. Extraction "Aspirateur" : On scanne TOUS les "tr" du formulaire. */
+    let toutesLesRoutes = extraireTableau(
+        conteneurRoutage,
+        {
+            "Réseau de destination": 0,
+            "Masque du sous-réseau de destination": 1,
+            "Passerelle": 2,
+            "Interface": 3,
+            "Métrique": 4,
+            "Activé": 5
+        }
+    );
+
+    /* 5. Nettoyage des fausses lignes ou en-têtes */
+    configLivebox.routage["table de routage"] = toutesLesRoutes.filter(route => {
+        let texteReseau = (route["Réseau de destination"] || "").toLowerCase();
+        return texteReseau !== "réseau de destination" && texteReseau !== "aucun équipement" && texteReseau !== "";
+    });
+
+    console.log("✅ Routage extrait avec succès (" + configLivebox.routage["table de routage"].length + " route(s) trouvée(s)) !");
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_vpn_nomade.js
+   ========================================== */
+
+/* --- /box4/extract_vpn_nomade.js --- */
+
+window.extraireVpnNomade = async function(estRattrapage = false) {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement, 
+        attendrePause, 
+        lireEtat, 
+        CLE_STORAGE 
+    } = window;
+
+    /* --- BLOC 11 : VPN Nomade (Client à Site) --- */
+    console.log("⏳ [11/x] Extraction sur la page VPN Nomade...");
+
+    if (estRattrapage) {
+        console.log("🔄 Mode tentative activé : Passage par le menu Wi-Fi d'abord...");
+        simulerClic("#homepage_wifi_configuration_hyperlink");
+        await attendrePause(1000); 
+    }
+
+    /* Fonction de lecture ultra-sécurisée anti-crash */
+    const lireSecuriseNomade = (selecteur) => {
+        let el = document.querySelector(selecteur);
+        if (!el) return "";
+        if (el.tagName === 'SELECT') {
+            return el.selectedIndex >= 0 ? el.options[el.selectedIndex].text.trim() : "";
+        }
+        let val = (el.tagName === 'INPUT') ? el.value : (el.innerText || el.textContent);
+        return val ? String(val).trim() : "";
+    };
+
+    /* Algorithme intelligent pour trouver les champs par leur texte (Label) */
+    const lireAvanceNomade = (motCle, blocParent, balise = "select") => {
+        /* On cherche d'abord par le titre (si Orange a bien fait son travail) */
+        let el = blocParent.querySelector(balise + "[title*='" + motCle + "']");
+        if (el) {
+            if (balise === 'select') return el.selectedIndex >= 0 ? el.options[el.selectedIndex].text.trim() : "";
+            return el.value.trim();
+        }
+
+        /* Plan B : Scanner tous les labels texte pour trouver le mot clé */
+        let labels = blocParent.querySelectorAll("div[class*='formItemLabel']");
+        for (let i = 0; i < labels.length; i++) {
+            if ((labels[i].innerText || "").toLowerCase().includes(motCle.toLowerCase())) {
+                /* Le champ se trouve généralement dans la balise soeur ou le parent */
+                let parent = labels[i].parentElement;
+                if (parent) {
+                    let input = parent.querySelector(balise);
+                    if (input) {
+                        if (balise === 'select') return input.selectedIndex >= 0 ? input.options[input.selectedIndex].text.trim() : "";
+                        return input.value.trim();
+                    }
+                }
+            }
+        }
+        return "Introuvable";
+    };
+
+    /* Fonction dédiée pour abattre les pop-ups qui bloquent la boucle */
+    const fermerPopUpGWT = async () => {
+        let popUpOui = await attendreElement("#confirm_button", 2500);
+        if (popUpOui) {
+            console.log("⚠️ Pop-up de sortie détectée ! Clic sur OUI...");
+            popUpOui.click();
+            simulerClic("#confirm_button");
+            await attendrePause(1000); /* Pause réduite pour laisser le temps au clic de s'enregistrer */
+            
+            let elementsBloquants = document.querySelectorAll("div[class*='popinPanel'], div[class*='glassPanel'], div[class*='popinGlass']");
+            elementsBloquants.forEach(el => {
+                el.style.pointerEvents = "none";
+                el.style.display = "none";
+                el.remove();
+            });
+        }
+    };
+
+    configLivebox.vpn = configLivebox.vpn || {};
+    configLivebox.vpn["nomade"] = { "comptes": [], "parametres avancés": {} };
+
+    let selecteurBoutonNomade = "img[title*='éditer'][title*='utilisateur'], img[title*='modifier'][title*='utilisateur'], img[title*='éditer'][title*='nomade'], img[title*='modifier'][title*='nomade']";
+    
+    await attendreElement(selecteurBoutonNomade, 10000);
+    let nbConnexionsNomades = document.querySelectorAll(selecteurBoutonNomade).length;
+
+    if (nbConnexionsNomades > 0) {
+        console.log("⚠️ " + nbConnexionsNomades + " compte(s) VPN Nomade trouvé(s). Début de la boucle...");
+
+        for (let i = 0; i < nbConnexionsNomades; i++) {
+            await attendreElement(selecteurBoutonNomade, 15000);
+            await attendrePause(1000);
+
+            let boutons = document.querySelectorAll(selecteurBoutonNomade);
+            let boutonActuel = boutons[i];
+
+            if (boutonActuel) {
+                boutonActuel.click();
+                if(boutonActuel.parentElement) boutonActuel.parentElement.click();
+                ['mousedown', 'mouseup', 'click'].forEach(evt => {
+                    boutonActuel.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }));
+                });
+                
+                let blocFormulaireNomade = "#gwtActivityPanel form div[class*='formLayout']";
+                let formVisible = await attendreElement(blocFormulaireNomade, 15000);
+                
+                if (formVisible) {
+                    await attendrePause(1500);
+                    let nomadeConfig = {}; 
+                    
+                    let etatActif = lireEtat(blocFormulaireNomade + " > div:nth-child(1)");
+                    nomadeConfig["état de l'utilisateur"] = (etatActif === true) ? "activé" : "désactivé";
+                    
+                    let valNom = lireSecuriseNomade("input[title*='nom'][title*='utilisateur']");
+                    nomadeConfig["nom de l'utilisateur"] = valNom ? valNom : lireSecuriseNomade(blocFormulaireNomade + " > div:nth-child(2) input");
+
+                    let valMdp = lireSecuriseNomade("input[title*='mot de passe']");
+                    nomadeConfig["mot de passe de l'utilisateur"] = valMdp ? valMdp : lireSecuriseNomade(blocFormulaireNomade + " > div:nth-child(3) input");
+
+                    let valLogiciel = lireSecuriseNomade("input[title*='logiciel']");
+                    nomadeConfig["logiciel VPN nomade"] = valLogiciel ? valLogiciel : lireSecuriseNomade(blocFormulaireNomade + " > div:nth-child(7) input, " + blocFormulaireNomade + " > div:nth-child(7) div[class*='formItemInput']");
+
+                    let valType = lireSecuriseNomade("input[title*='type VPN'], div[title*='type VPN']");
+                    nomadeConfig["type VPN"] = valType ? valType : lireSecuriseNomade(blocFormulaireNomade + " > div:nth-child(8) div[class*='formItemInput']");
+
+                    let valCle = lireSecuriseNomade("input[title*='clé partagée']");
+                    nomadeConfig["clé partagée nomade"] = valCle ? valCle : lireSecuriseNomade(blocFormulaireNomade + " > div:nth-child(9) input");
+
+                    configLivebox.vpn["nomade"]["comptes"].push(nomadeConfig);
+
+                    /* ========================================================================= */
+                    /* EXTRACTION DES PARAMÈTRES AVANCÉS SANS AUCUN NTH-CHILD !                  */
+                    /* ========================================================================= */
+                    if (i === 0) {
+                        let selecteurLienAvance = "#gwtActivityPanel a, .gwt-Hyperlink a";
+                        let tousLesLiens = document.querySelectorAll(selecteurLienAvance);
+                        let lienAvances = Array.from(tousLesLiens).find(a => a.innerText.toLowerCase().includes("avancés"));
+                        
+                        if (lienAvances) {
+                            lienAvances.click();
+                            await attendreElement("#gwtActivityPanel form div[class*='formLayout'] select", 6000); 
+                            
+                            /* On récupère les 3 grands blocs de la page (Réseau, Phase 1, Phase 2) */
+                            let blocsAvances = document.querySelectorAll("#gwtActivityPanel form div[class*='formLayout']");
+                            
+                            if(blocsAvances.length >= 3) {
+                                let paramAvances = {};
+                                
+                                /* Bloc 1 : Paramètres Réseaux */
+                                paramAvances["allocation IP"] = lireAvanceNomade("allocation", blocsAvances[0], "select");
+                                paramAvances["accès Internet utilisateur"] = lireAvanceNomade("internet", blocsAvances[0], "select");
+                                paramAvances["adresse IP de début"] = lireAvanceNomade("début", blocsAvances[0], "input");
+                                paramAvances["adresse IP de fin"] = lireAvanceNomade("fin", blocsAvances[0], "input");
+                                
+                                /* Bloc 2 : IKE Phase 1 */
+                                paramAvances["IKE (phase 1)"] = {
+                                    "chiffrement": lireAvanceNomade("chiffrement", blocsAvances[1], "select"),
+                                    "authentification": lireAvanceNomade("authentification", blocsAvances[1], "select"),
+                                    "groupe Diffie Hellman": lireAvanceNomade("diffie", blocsAvances[1], "select"),
+                                    "durée de session (en sec)": lireAvanceNomade("durée", blocsAvances[1], "input")
+                                };
+                                
+                                /* Bloc 3 : IKE Phase 2 */
+                                let detectionCochee = blocsAvances[2].querySelector("input[type='checkbox'], input[type='radio']");
+                                paramAvances["IKE (phase 2)"] = {
+                                    "chiffrement": lireAvanceNomade("chiffrement", blocsAvances[2], "select"),
+                                    "authentification": lireAvanceNomade("authentification", blocsAvances[2], "select"),
+                                    "groupe PFS": lireAvanceNomade("pfs", blocsAvances[2], "select"),
+                                    "durée de session (en sec)": lireAvanceNomade("durée", blocsAvances[2], "input"),
+                                    "détection de déconnexion": detectionCochee ? (detectionCochee.checked ? "activé" : "désactivé") : "inconnu"
+                                };
+                                
+                                configLivebox.vpn["nomade"]["parametres avancés"] = paramAvances;
+                                console.log("✅ Paramètres avancés extraits intelligemment !");
+                            }
+
+                            let btnRetourAvance = document.querySelector("#back_form_button");
+                            if (btnRetourAvance) {
+                                btnRetourAvance.click();
+                                simulerClic("#back_form_button");
+                                await fermerPopUpGWT();
+                                await attendreElement("input[title*='nom'][title*='utilisateur'], " + blocFormulaireNomade, 10000);
+                            }
+                        }
+                    }
+
+                } else {
+                    console.error("❌ Impossible d'ouvrir le formulaire Nomade.");
+                }
+
+                let btnRetourList = document.querySelector("#back_form_button");
+                if (btnRetourList) {
+                    btnRetourList.click();
+                    simulerClic("#back_form_button");
+                    await fermerPopUpGWT();
+                    
+                    let listeReapparait = await attendreElement(selecteurBoutonNomade, 6000);
+                    if (!listeReapparait) {
+                        simulerClic("#menu_menuNetwork_vpn_hyperlink");
+                        await attendreElement(selecteurBoutonNomade, 10000);
+                    }
+                } else {
+                    simulerClic("#menu_menuNetwork_vpn_hyperlink");
+                    await attendreElement(selecteurBoutonNomade, 15000);
+                }
+            }
+        }
+    }
+
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_vpn_siteasite.js
+   ========================================== */
+
+/* --- /box4/extract_vpn_siteasite.js --- */
+
+window.extraireVpnSite = async function() {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement, 
+        attendrePause, 
+        lireEtat, 
+        CLE_STORAGE 
+    } = window;
+
+
+    /* --- BLOC 10 : VPN (Site à Site) --- */
+    console.log("⏳ [10/x] Extraction sur la page VPN...");
+
+    const lireSecurise = (selecteur) => {
+        try {
+            let el = document.querySelector(selecteur);
+            if (!el) return "";
+            let val = (el.tagName === 'INPUT' || el.tagName === 'SELECT') ? el.value : (el.innerText || el.textContent);
+            return val ? String(val).trim() : "";
+        } catch(e) {
+            return "";
+        }
+    };
+
+    simulerClic("#menu_menuNetwork_vpn_hyperlink");
+    await attendrePause(3000); 
+
+    configLivebox.vpn = configLivebox.vpn || {};
+    configLivebox.vpn["vpn site à site"] = []; 
+
+    let selecteurBoutonEdition = "img[title='éditer/modifier cette connexion site à site']";
+    await attendreElement(selecteurBoutonEdition, 15000);
+    
+    let nbConnexions = document.querySelectorAll(selecteurBoutonEdition).length;
+
+    if (nbConnexions > 0) {
+        console.log("⚠️ " + nbConnexions + " connexion(s) VPN trouvée(s). Début de la boucle...");
+
+        for (let i = 0; i < nbConnexions; i++) {
+            await attendreElement(selecteurBoutonEdition, 15000);
+            await attendrePause(1000);
+
+            let boutons = document.querySelectorAll(selecteurBoutonEdition);
+            let boutonActuel = boutons[i];
+
+            if (boutonActuel) {
+                ['mousedown', 'mouseup', 'click'].forEach(evt => {
+                    boutonActuel.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }));
+                });
+                
+                let blocFormulaireVpn = "#gwtActivityPanel form div[class*='formLayout']";
+                await attendreElement(blocFormulaireVpn, 15000);
+                await attendrePause(1500); 
+                
+                let formVisible = document.querySelector(blocFormulaireVpn);
+
+                if (formVisible) {
+                    let vpnConfig = {}; 
+                    try {
+                        vpnConfig["activé"] = lireEtat(blocFormulaireVpn + " > div:nth-child(1)");
+                        
+                        /* Remplacement des guillemets imbriqués par des *= pour éviter tout crash de syntaxe */
+                        let valNom = lireSecurise("input[title*='nom de la connexion VPN']");
+                        vpnConfig["nom VPN"] = valNom ? valNom : lireSecurise(blocFormulaireVpn + " > div:nth-child(2) input");
+
+                        let valIpDistante = lireSecurise("input[title*='IP de la machine VPN distante']");
+                        vpnConfig["adresse IP du site distant"] = valIpDistante ? valIpDistante : lireSecurise(blocFormulaireVpn + " > div:nth-child(3) input");
+
+                        let valEquipement = lireSecurise("select[title*='équipement distant']");
+                        vpnConfig["équipement distant"] = valEquipement ? valEquipement : lireSecurise(blocFormulaireVpn + " > div:nth-child(4) select");
+
+                        vpnConfig["clé partagée"] = lireSecurise(blocFormulaireVpn + " > div:nth-child(5) input");
+
+                        let ipLocal = lireSecurise("input[title*='IP de votre réseau local']");
+                        let masqueLocal = lireSecurise("input[title*='masque du réseau'][title*='local']");
+                        vpnConfig["réseau local"] = { "ip": ipLocal, "masque": masqueLocal };
+
+                        let ipDistant = lireSecurise("input[title*='IP'][title*='réseau distant']");
+                        let masqueDistant = lireSecurise("input[title*='masque'][title*='réseau distant']");
+                        vpnConfig["réseau distant"] = { "ip": ipDistant, "masque": masqueDistant };
+
+                        let radioModeCoche = document.querySelector("input[name='tunnelMode']:checked");
+                        if (radioModeCoche) {
+                            let labelAssocie = document.querySelector('label[for="' + radioModeCoche.id + '"]');
+                            vpnConfig["mode de configuration du tunnel"] = labelAssocie ? (labelAssocie.innerText || labelAssocie.textContent).trim() : radioModeCoche.value;
+                        } else {
+                            vpnConfig["mode de configuration du tunnel"] = "Inconnu";
+                        }
+
+                        configLivebox.vpn["vpn site à site"].push(vpnConfig);
+                        console.log("✅ Connexion " + (i + 1) + " extraite avec succès !");
+
+                    } catch(erreurExtraction) {
+                        console.error("❌ Erreur sur la connexion " + (i + 1) + " :", erreurExtraction);
+                        vpnConfig["statut"] = "Erreur de lecture";
+                        configLivebox.vpn["vpn site à site"].push(vpnConfig);
+                    }
+                }
+
+                let btnRetour = document.querySelector("#back_form_button");
+                if (btnRetour) {
+                    ['mousedown', 'mouseup', 'click'].forEach(evt => {
+                        btnRetour.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }));
+                    });
+                    await attendreElement(selecteurBoutonEdition, 15000);
+                    await attendrePause(2000);
+                }
+            }
+        }
+    } else {
+        console.warn("ℹ️ Aucun VPN configuré ou liste vide.");
+        configLivebox.vpn["statut"] = "Aucun VPN configuré";
+    }
+
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+};
+
+
+/* ==========================================
+   FICHIER : box4\extract_wifi.js
+   ========================================== */
+
+/* --- /box4/extract_wifi.js --- */
+
+window.extraireWifi = async function() {
+    const { 
+        configLivebox, 
+        simulerClic, 
+        attendreElement, 
+        attendrePause, 
+        lireEtat, 
+        extraireTableau, 
+        CLE_STORAGE 
+    } = window;
+
+
+    /* --- BLOC 2 : WI-FI --- */
+    console.log("⏳ [2/x] Extraction sur la page Wi-Fi...");
+
+    /* Initialiser la structure JSON pour séparer 2.4GHz et 5GHz */
+    if (!configLivebox.wifi) {
+        configLivebox.wifi = {};
+    }
+    configLivebox.wifi.wifi2_4 = {};
+    configLivebox.wifi.wifi5 = {};
+
+    simulerClic("#homepage_wifi_configuration_hyperlink");
+    
+    /* Attendre et lire l'état de la différenciation des réseaux */
+    await attendreElement("#network_wifi_activation_difference_radioPanel", 10000);
+    configLivebox.wifi.differencier_reseaux = lireEtat("#network_wifi_activation_difference_radioPanel");
+
+    /* ========================================= */
+    /* EXTRACTION WI-FI 2.4 GHz                  */
+    /* ========================================= */
+    if (simulerClic("#network_wifi_wifi2\\.4_foldable_imageButton")) {
+        await attendreElement("#network_wifi_wifi2\\.4_technicalSettings_broadCastSsid_radioPanel", 5000);
+        
+        /* Extraire l'état du mode 2.4GHz */
+        let champMode24 = document.querySelector("#network_wifi_wifi2\\.4_technicalSettings_mode_combobox");
+        configLivebox.wifi.wifi2_4.mode = champMode24 ? (champMode24.tagName === 'SELECT' ? champMode24.options[champMode24.selectedIndex].text : (champMode24.innerText || champMode24.value)).trim() : "Introuvable";
+
+        /* Extraire les autres paramètres 2.4GHz */
+        configLivebox.wifi.wifi2_4.diffusion_ssid = lireEtat("#network_wifi_wifi2\\.4_technicalSettings_broadCastSsid_radioPanel");
+        configLivebox.wifi.wifi2_4.afficher_cle_ecran = lireEtat("#network_wifi_wifi2\\.4_securitySettings_wifiKeyDisplayed_radioPanel");
+        configLivebox.wifi.wifi2_4.filtrage_mac = lireEtat("#network_wifi_wifi2\\.4_authorizedEquipement_macFiltering_radioPanel");
+        
+        /* --- EXTRACTION WPS 2.4 GHz --- */
+        configLivebox.wifi.wifi2_4.wps = {};
+        configLivebox.wifi.wifi2_4.wps["état WPS"] = lireEtat("#network_wifi_wifi2\\.4_WPSAssociation_wpsState_radioPanel");
+        configLivebox.wifi.wifi2_4.wps["association WPS par écran"] = lireEtat("#network_wifi_wifi2\\.4_WPSAssociation_wpsAssociation_radioPanel");
+        
+        /* CORRECTION : Récupérer le texte affiché (Display Text) au lieu de la valeur (Value) */
+        let wpsMode24 = document.querySelector("#network_wifi_wifi2\\.4_WPSAssociation_mode_combobox");
+        configLivebox.wifi.wifi2_4.wps.mode = wpsMode24 ? (wpsMode24.tagName === 'SELECT' ? wpsMode24.options[wpsMode24.selectedIndex].text : (wpsMode24.innerText || wpsMode24.value)).trim() : "Introuvable";
+
+        /* Extraction de la table MAC 2.4GHz */
+        let selecteurTableauMac24 = "#network_wifi_wifi2\\.4_authorizedEquipementSection_mainBlock table";
+        await attendreElement(selecteurTableauMac24, 5000);
+        
+        configLivebox.wifi.wifi2_4.equipements_autorises = extraireTableau(
+            selecteurTableauMac24, 
+            { "nom_equipement": 0, "adresse_mac": 2 }
+        );            
+    } else {
+        console.warn("⚠️ Menu 2.4GHz introuvable.");
+    }
+
+    /* ========================================= */
+    /* 3 BIS : EXTRACTION WI-FI 5 GHz            */
+    /* ========================================= */
+    
+    /* Enregistrer explicitement l'état "activé" du Wi-Fi 5GHz */
+    if (configLivebox.wifi.differencier_reseaux === false) {
+        console.log("🔄 Le Wi-Fi 5GHz n'est pas différencié. activé = false");
+        configLivebox.wifi.wifi5["activé"] = false;
+        
+        console.log("🔧 Séparation des réseaux activée temporairement pour lire le 5GHz...");
+        simulerClic("#network_wifi_activation_difference_enable_radioButton");
+        await attendrePause(2000); /* Attendre que le menu 5GHz apparaisse */
+    } else {
+        console.log("✅ Le Wi-Fi 5GHz est différencié. activé = true");
+        configLivebox.wifi.wifi5["activé"] = true;
+    }
+
+    /* 0. Cliquer sur le menu déroulant 5GHz */
+    if (simulerClic("#network_wifi_wifi5_foldable_imageButton")) {
+        await attendreElement("#network_wifi_wifi5_technicalSettings_broadCastSsid_radioPanel", 5000);
+        
+        /* 1. Enregistrer SSID 5 */
+        let champSsid = document.querySelector("#network_wifi_wifi5_technicalSettings_ssid_textbox");
+        configLivebox.wifi.wifi5.ssid = champSsid ? champSsid.value : "Introuvable";
+
+        /* 2. Enregistrer l'état mode (Texte affiché) */
+        let champMode5 = document.querySelector("#network_wifi_wifi5_technicalSettings_mode");
+        configLivebox.wifi.wifi5.mode = champMode5 ? (champMode5.tagName === 'SELECT' ? champMode5.options[champMode5.selectedIndex].text : (champMode5.innerText || champMode5.value)).trim() : "Introuvable";
+        
+        /* 3. Enregistrer l'état diffusion SSID 5 */
+        configLivebox.wifi.wifi5.diffusion_ssid = lireEtat("#network_wifi_wifi5_technicalSettings_broadCastSsid_radioPanel");
+        
+        /* 4. Enregistrer mdp5 */
+        let champMdp = document.querySelector("#network_wifi_wifi5_securitySettings_WPAKeyClear_textbox");
+        configLivebox.wifi.wifi5.mdp = champMdp ? champMdp.value : "Introuvable";
+
+        /* 5. Enregistrer l'état filtrage d'adresses MAC */
+        configLivebox.wifi.wifi5.filtrage_mac = lireEtat("#network_wifi_wifi5_authorizedEquipement_macFiltering_radioPanel");
+        
+        /* --- EXTRACTION WPS 5 GHz --- */
+        configLivebox.wifi.wifi5.wps = {};
+        configLivebox.wifi.wifi5.wps["état WPS"] = lireEtat("#network_wifi_wifi5_WPSAssociation_wpsState_radioPanel");
+        configLivebox.wifi.wifi5.wps["association WPS par écran"] = lireEtat("#network_wifi_wifi5_WPSAssociation_wpsAssociation_radioPanel");
+        
+        /* CORRECTION : Récupérer le texte affiché (Display Text) au lieu de la valeur (Value) */
+        let wpsMode5 = document.querySelector("#network_wifi_wifi5_WPSAssociation_mode_combobox");
+        configLivebox.wifi.wifi5.wps.mode = wpsMode5 ? (wpsMode5.tagName === 'SELECT' ? wpsMode5.options[wpsMode5.selectedIndex].text : (wpsMode5.innerText || wpsMode5.value)).trim() : "Introuvable";
+
+        /* 6. Extraire les équipements autorisés depuis le tableau spécifique */
+        let selecteurTableauMac5 = "#network_wifi_wifi5_authorizedEquipementSection_mainBlock > div:nth-child(6) > div > table";
+        await attendreElement(selecteurTableauMac5, 5000);
+        
+        /* La fonction extraireTableau ignore automatiquement l'en-tête (tr index 0) */
+        configLivebox.wifi.wifi5.equipements_autorises = extraireTableau(
+            selecteurTableauMac5, 
+            { "nom_equipement": 0, "adresse_mac": 2 }
+        );            
+    } else {
+        console.warn("⚠️ Menu 5GHz introuvable ou impossible à ouvrir.");
+    }
+
+    /* Sauvegarde finale dans le navigateur */
+    localStorage.setItem(CLE_STORAGE, JSON.stringify(configLivebox));
+
+    /* Passage à la page suivante (DHCP/DNS) */
+    simulerClic("#menu_menuNetwork_dhcpdns_hyperlink");
+};
+
+
+/* ==========================================
+   FICHIER : extract_fin.js
+   ========================================== */
+
+/* --- /box4/extract_fin.js --- */
+
+window.extraireFin = async function() {
+    const { configLivebox } = window;
+
+    /* --- TÉLÉCHARGEMENT FINAL --- */
+    console.log("⏳ Génération du fichier JSON...");
+
+    const STATIC_SECRET = "LBP_INTERNAL_STATIC_KEY_2026_ORANGE";
+    let payload = null;
+
+    const hasWebCrypto = !!(window.crypto && window.crypto.subtle);
+    const hasLBObf = !!(window.LB_OBF && typeof window.LB_OBF.encodeObject === "function");
+
+    if (!hasWebCrypto && !hasLBObf) {
+        throw new Error("Aucun moteur disponible (WebCrypto/LB_OBF).");
+    }
+
+    if (hasWebCrypto) {
+        const encoder = new TextEncoder();
+
+        const bytesToB64 = (bytes) => {
+            let bin = "";
+            const chunk = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunk) {
+                bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+            }
+            return btoa(bin);
+        };
+
+        const raw = encoder.encode(STATIC_SECRET);
+        const hash = await crypto.subtle.digest("SHA-256", raw);
+        const key = await crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt"]);
+
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const plain = encoder.encode(JSON.stringify(configLivebox));
+        const cipherBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plain);
+
+        payload = {
+            v: 1,
+            alg: "AES-GCM",
+            iv: bytesToB64(iv),
+            ct: bytesToB64(new Uint8Array(cipherBuf))
+        };
+    } else {
+        // fallback non sécurisé: obfuscation locale (pas CryptoJS)
+        payload = window.LB_OBF.encodeObject(configLivebox);
+    }
+
+    localStorage.setItem("livebox_migration_config", JSON.stringify(payload));
+
+    let texteJson = JSON.stringify(payload, null, 2);
+    let objetFichier = new Blob([texteJson], { type: "application/json" });
+    let urlFichier = URL.createObjectURL(objetFichier);
+
+    let lien = document.createElement("a");
+    lien.href = urlFichier;
+    lien.download = "livebox_migration_config.json";
+    document.body.appendChild(lien);
+    lien.click();
+    document.body.removeChild(lien);
+    URL.revokeObjectURL(urlFichier);
+};
+
+
+/* ==========================================
+   FICHIER : extract_router.js
+   ========================================== */
+
+/* --- /extraction/extract_router.js --- */
+
+(async function() {
+    console.warn("=================================================");
+    console.warn("ROUTEUR EXTRACTION : Detection de la Livebox...");
+    console.warn("=================================================");
+
+    /* 1. Nettoyage des scripts precedents pour eviter les conflits SPA */
+    let anciensScripts = document.querySelectorAll("script[src*='extract_main.js']");
+    anciensScripts.forEach(script => script.remove());
+
+    /* Fonction utilitaire pour laisser le temps au DOM de se construire */
+    const attendre = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    await attendre(1500);
+
+    let boxDetectee = "box4"; /* Valeur par defaut */
+    let estBox4 = false;
+    let estBox3 = false;
+
+    /* --- LOGIQUE DE DETECTION BOX 4 (MODERNE) --- */
+    
+    /* Critere 1 : Presence du widget de login (fourni par l'utilisateur) */
+    /* On utilise *= sur la classe pour eviter que ca casse si Orange modifie le hash GIB5... */
+    let loginModerne = document.querySelector("#authentification_widget div[class*='AuthenticationWidgetCss-inner']") || document.querySelector("#authentification_widget");
+    
+    /* Critere 2 : Presence de l'icone Internet sur l'accueil moderne */
+    let accueilModerne = document.querySelector("#homepage_myservices_iconInternet_image");
+
+    if (loginModerne || accueilModerne) {
+        estBox4 = true;
+    }
+
+    /* --- LOGIQUE DE DETECTION BOX 3 (ANCIENNE) --- */
+    if (!estBox4) {
+        /* On ne se fie plus a #gwtActivityPanel. Le menu gauche est exclusif a l'ancienne box */
+        if (document.querySelector("#gwtLeftMenuBar")) {
+            estBox3 = true;
+        } else {
+            let selects = document.querySelectorAll("select.gwt-ListBox, select[class*='HeaderCss-hwModeCb']");
+            for (let s of selects) {
+                let texteOptions = (s.innerText || "").toLowerCase();
+                if (texteOptions.includes("expert") || texteOptions.includes("standard") || texteOptions.includes("avance")) {
+                    estBox3 = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (estBox4) {
+        boxDetectee = "box4"; /* Dossier box4 pour Box 4 ET Box 3 IHM moderne */
+        console.warn("Livebox Moderne (Box 4 ou Box 3 avec IHM recente) detectee avec certitude !");
+    } else if (estBox3) {
+        boxDetectee = "box3"; /* Dossier box3 pour l'ancienne IHM */
+        console.warn("Ancienne Livebox 3 Pro detectee !");
+    } else {
+        console.warn("Aucun marqueur specifique trouve, essai par defaut sur Livebox Moderne...");
+    }
+
+    /* --- CHARGEMENT DU SCRIPT PRINCIPAL CORRESPONDANT --- */
+    let scriptCible = "";
+    let baseUrl = "";
+
+    /* Deduire l'URL de base dynamique a partir de l'emplacement de ce routeur */
+    if (document.currentScript && document.currentScript.src) {
+        baseUrl = document.currentScript.src.substring(0, document.currentScript.src.lastIndexOf('/'));
+    } else {
+        let scripts = document.getElementsByTagName("script");
+        for (let s of scripts) {
+            if (s.src && s.src.includes("extract_router.js")) {
+                baseUrl = s.src.substring(0, s.src.lastIndexOf('/'));
+                break;
+            }
+        }
+    }
+
+    /* Fallback local si introuvable */
+    if (!baseUrl) {
+        baseUrl = "http://127.0.0.1:5500/extraction"; 
+    }
+
+    scriptCible = baseUrl + "/" + boxDetectee + "/extract_main.js?v=" + Date.now();
+
+    console.warn("Chargement du module principal : " + scriptCible);
+
+    let scriptElement = document.createElement('script');
+    scriptElement.src = scriptCible;
+    scriptElement.onload = () => console.warn("Module principal charge avec succes.");
+    scriptElement.onerror = () => console.error("Echec du chargement du module principal.");
+    document.head.appendChild(scriptElement);
+})();
+
+
+/* ==========================================
+   FICHIER : extract_ui.js
+   ========================================== */
+
+/* --- /box4/extract_ui.js --- */
+
+window.ExtractUI = {
+    AFFICHER_UI: true,
+
+    CSS: `
+        #livebox-migration-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.50); z-index: 9999999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Segoe UI', Arial, sans-serif; color: #fff; backdrop-filter: blur(3px); }
+        .lm-box { background: #fff; color: #333; padding: 35px; border-radius: 12px; width: 420px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .lm-box h2 { color: #ff7900; margin-top: 0; font-size: 22px; font-weight: bold; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .lm-progress-bg { background: #f0f0f0; height: 18px; border-radius: 10px; margin: 20px 0; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); }
+        .lm-progress-bar { background: linear-gradient(90deg, #ff7900, #ff9e40); height: 100%; width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .lm-step-text { font-size: 15px; font-weight: bold; margin-bottom: 10px; color: #555; }
+        .lm-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #ff7900; border-radius: 50%; width: 45px; height: 45px; animation: lm-spin 1s linear infinite; margin: 0 auto 15px auto; }
+        @keyframes lm-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    `,
+
+    HTML: `
+        <div class="lm-box">
+            <div class="lm-spinner" id="lm-spinner"></div>
+            <h2 id="lm-titre">Extraction en cours...</h2>
+            <div class="lm-step-text" id="lm-step-text">Initialisation...</div>
+            <div class="lm-progress-bg"><div class="lm-progress-bar" id="lm-progress-bar"></div></div>
+            <p id="lm-warning" style="color:#d9534f; font-weight:bold; font-size:14px; margin-top: 10px;">⚠️ Patientez, ne touchez à rien.</p>
+        </div>
+    `,
+
+    injecter: function() {
+        if (!this.AFFICHER_UI) return;
+        if(document.getElementById("livebox-migration-overlay")) return;
+        
+        const style = document.createElement('style');
+        style.innerHTML = this.CSS;
+        document.head.appendChild(style);
+
+        const overlay = document.createElement('div');
+        overlay.id = "livebox-migration-overlay";
+        overlay.innerHTML = this.HTML;
+        document.body.appendChild(overlay);
+    },
+
+    majNormal: function(etape, total, nomModule) {
+        if (!this.AFFICHER_UI) return;
+        const pct = Math.round((etape / total) * 100);
+        document.querySelector(".lm-progress-bg").style.display = "block";
+        document.getElementById("lm-progress-bar").style.width = pct + "%";
+        document.getElementById("lm-step-text").innerHTML = "Étape " + etape + "/" + total + " : <br><span style='color:#ff7900'>" + nomModule + "</span>";
+    },
+
+    majTentative: function(nomModule, tentativeActuelle, maxTentatives) {
+        if (!this.AFFICHER_UI) return;
+        document.querySelector(".lm-progress-bg").style.display = "none";
+        document.getElementById("lm-step-text").innerHTML = "<span style='color:#f39c12; font-size:14px;'>⏳ Rattrapage (" + tentativeActuelle + "/" + maxTentatives + ")...</span><br><span style='color:#ff7900; font-size:16px;'>" + nomModule + "</span>";
+    },
+
+    succes: function(erreursDefinitives = []) {
+        if (!this.AFFICHER_UI) return;
+        document.getElementById("lm-spinner").style.display = "none";
+        document.getElementById("lm-warning").style.display = "none";
+        document.querySelector(".lm-progress-bg").style.display = "none";
+        document.getElementById("lm-step-text").style.display = "none";
+        
+        const box = document.querySelector(".lm-box");
+        const titre = document.getElementById("lm-titre");
+
+        if (erreursDefinitives.length === 0) {
+            titre.innerHTML = "✅ Extraction Terminée !"; 
+            titre.style.color = "#4caf50";
+        } else {
+            titre.innerHTML = "⚠️ Terminé (Incomplet)"; 
+            titre.style.color = "#f39c12";
+            
+            let listeErreursHtml = "<div style='text-align: left; background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 13px; border: 1px solid #ffeeba;'>";
+            listeErreursHtml += "<b>Données introuvables :</b><ul style='margin: 8px 0 0 0; padding-left: 20px;'>";
+            erreursDefinitives.forEach(err => { listeErreursHtml += `<li>${err}</li>`; });
+            listeErreursHtml += "</ul></div>";
+            
+            let containerErreurs = document.createElement("div");
+            containerErreurs.innerHTML = listeErreursHtml;
+            box.appendChild(containerErreurs);
+        }
+
+        let btn = document.createElement("button");
+        btn.innerHTML = "Fermer";
+        btn.style.cssText = "margin-top:10px; padding:10px 20px; background:#4caf50; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size: 15px; width: 100%;";
+        btn.onclick = function() { document.getElementById("livebox-migration-overlay").remove(); };
+        box.appendChild(btn);
+    },
+
+    erreur: function(msg) {
+        if (!this.AFFICHER_UI) { alert("❌ Erreur : " + msg); return; }
+        document.getElementById("lm-spinner").style.display = "none";
+        document.getElementById("lm-titre").innerHTML = "❌ Erreur Critique"; 
+        document.getElementById("lm-titre").style.color = "#d9534f";
+        
+        let warning = document.getElementById("lm-warning");
+        warning.innerHTML = msg; 
+        warning.style.color = "#333"; 
+        warning.style.wordWrap = "break-word";
+        
+        let box = document.querySelector(".lm-box");
+        box.style.border = "4px solid #d9534f";
+        
+        let btn = document.createElement("button");
+        btn.innerHTML = "Fermer et Annuler";
+        btn.style.cssText = "margin-top:15px; padding:10px 20px; background:#d9534f; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size: 15px; width: 100%;";
+        btn.onclick = function() { document.getElementById("livebox-migration-overlay").remove(); };
+        box.appendChild(btn);
+    },
+
+    /* NOUVEAU: Popup géré entièrement par extract_ui.js avec textes raccourcis */
+    afficherAlerte: function(titre, ligne1, ligne2, actionHtml) {
+        let overlayAlerte = document.createElement("div");
+        overlayAlerte.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999999; display: flex; align-items: center; justify-content: center; font-family: 'Segoe UI', Arial, sans-serif; backdrop-filter: blur(5px);";
+        
+        let boxAlerte = document.createElement("div");
+        boxAlerte.style.cssText = "background: #fff; padding: 35px; border-radius: 12px; width: 400px; text-align: center; box-shadow: 0 15px 40px rgba(0,0,0,0.6); border-top: 5px solid #d9534f;";
+        
+        boxAlerte.innerHTML = `
+            <h2 style="color: #d9534f; margin-top: 0; font-size: 22px; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                ${titre}
+            </h2>
+            <p style="color: #333; font-size: 15px; margin-bottom: 10px;">${ligne1}</p>
+            <p style="color: #666; font-size: 14px; margin-bottom: 25px;">${ligne2}</p>
+            ${actionHtml}
+            <br>
+            <button id="btn-fermer-alerte" style="background: transparent; border: none; color: #888; text-decoration: underline; cursor: pointer; font-size: 13px; margin-top: 10px;">Annuler</button>
+        `;
+        
+        overlayAlerte.appendChild(boxAlerte);
+        document.body.appendChild(overlayAlerte);
+        
+        let fermerPopup = () => overlayAlerte.remove();
+        document.getElementById("btn-fermer-alerte").onclick = fermerPopup;
+        let btnAction = document.getElementById("btn-fermer-alerte-action");
+        if(btnAction) btnAction.onclick = fermerPopup;
+    }
+};
+
+
+/* ==========================================
+   FICHIER : extract_utils.js
+   ========================================== */
+
+/* --- /box4/extract_utils.js --- */
+
+/* --- INITIALISATION ET STOCKAGE LOCAL --- */
+window.CLE_STORAGE = "livebox_migration_config";
+
+/* Charger depuis le localStorage ou créer un nouveau DTO */
+window.configLivebox = JSON.parse(localStorage.getItem(window.CLE_STORAGE)) || { 
+    "wifi": {}, 
+    "dhcp_dns": {},
+    "natpat": {},
+    "dyndns": {},
+    "dmz": {},
+    "routage": {},
+    "parefeu": {},
+    "vpn": {}, 
+    "accès à distance" : {},
+    "airbox" : {}
+};
+
+/* --- FONCTIONS UTILITAIRES --- */
+window.attendrePause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+window.attendreElement = (selecteur, tempsMax = 20000) => {
+    return new Promise((resolve) => {
+        let element = document.querySelector(selecteur);
+        if (element) return resolve(element); 
+
+        const intervalle = setInterval(() => {
+            element = document.querySelector(selecteur);
+            if (element) {
+                clearInterval(intervalle);
+                clearTimeout(securiteTimeout);
+                resolve(element);
+            }
+        }, 200); 
+
+        const securiteTimeout = setTimeout(() => {
+            clearInterval(intervalle);
+            console.warn("⚠️ Délai dépassé pour l'élément : " + selecteur);
+            resolve(null); 
+        }, tempsMax);
+    });
+};
+
+window.attendreStabiliteDOM = (selecteur, tempsMax = 20000, dureeCalme = 400) => {
+    return new Promise((resolve) => {
+        let dernierContenu = null;
+        let tempsStable = 0;
+        const intervalleCheck = 100;
+
+        const interval = setInterval(() => {
+            const element = document.querySelector(selecteur);
+            if (element) {
+                const contenuActuel = element.innerHTML; 
+                
+                if (contenuActuel !== dernierContenu) {
+                    dernierContenu = contenuActuel;
+                    tempsStable = 0; 
+                } else {
+                    tempsStable += intervalleCheck;
+                    if (tempsStable >= dureeCalme) {
+                        clearInterval(interval);
+                        clearTimeout(timeoutSecurite);
+                        resolve(element); 
+                    }
+                }
+            } else {
+                tempsStable = 0; 
+                dernierContenu = null;
+            }
+        }, intervalleCheck);
+
+        const timeoutSecurite = setTimeout(() => {
+            clearInterval(interval);
+            console.warn("⚠️ Stabilité non atteinte à temps pour : " + selecteur);
+            resolve(document.querySelector(selecteur)); 
+        }, tempsMax);
+    });
+};
+
+/*  Fonction globale pour attendre la fin des pop-ups GWT */
+window.attendreFinChargementGWT = async () => {
+    console.warn("Verification des pop-ups de chargement en cours...");
+    let tentatives = 0;
+    while (tentatives < 40) { /* Attente max de 20 secondes */
+        let popup = document.querySelector(".ui-widget-overlay, div[class*='PopinCss-popinPanel']");
+        
+        if (!popup || window.getComputedStyle(popup).display === "none" || window.getComputedStyle(popup).visibility === "hidden") {
+            break; /* Le chargement est termine */
+        }
+        await window.attendrePause(500);
+        tentatives++;
+    }
+    console.warn("Chargement GWT termine, reprise du script.");
+};
+
+window.simulerClic = function(selecteur) {
+    let element = document.querySelector(selecteur);
+    if(element) {
+        ['mousedown', 'mouseup', 'click'].forEach(function(type) {
+            element.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+        });
+        return true;
+    }
+    return false;
+};
+
+window.lireTexte = function(selecteur) {
+    let element = document.querySelector(selecteur);
+    return element ? (element.innerText || element.textContent).trim() : "Introuvable";
+};
+
+window.lireEtat = function(selecteur) {
+    let element = document.querySelector(selecteur);
+    if(!element) return "Introuvable";
+    if(element.tagName === 'INPUT') return element.checked;
+    let boutonOui = element.querySelector("input[type='radio'][value='true'], input[type='radio'][value='1'], input[type='radio'][value='oui'], input[type='radio'][value='on']");
+    if(boutonOui) return boutonOui.checked;
+    let inputInterne = element.querySelector("input[type='radio'], input[type='checkbox']");
+    if(inputInterne) return inputInterne.checked;
+    return "Erreur_Structure";
+};
+
+window.lireValeurInput = function(selecteur) {
+    let element = document.querySelector(selecteur);
+    if(!element) return "Introuvable";
+    if(element.tagName === 'INPUT' || element.tagName === 'SELECT') {
+        return element.value.trim();
+    }
+    return (element.innerText || element.textContent).trim();
+};
+
+window.extraireTableau = function(selecteurTableau, configurationColonnes) {
+    let resultats = [];
+    let lignes = document.querySelectorAll(selecteurTableau + " tr");
+    
+    for (let i = 1; i < lignes.length; i++) {
+        let cellules = lignes[i].querySelectorAll("td");
+        let objetLigne = {};
+        let estValide = true;
+
+        for (let cle in configurationColonnes) {
+            let indexColonne = configurationColonnes[cle];
+            if (!cellules[indexColonne]) {
+                estValide = false; 
+                break; 
+            }
+        }
+
+        if (estValide) {
+            for (let cle in configurationColonnes) {
+                let indexColonne = configurationColonnes[cle];
+                let cellule = cellules[indexColonne];
+                
+                let elementInteractif = cellule.querySelector("select, input:not([type='hidden']), textarea");
+                
+                if (elementInteractif) {
+                    if (elementInteractif.tagName === 'INPUT' && (elementInteractif.type === 'checkbox' || elementInteractif.type === 'radio')) {
+                        objetLigne[cle] = elementInteractif.checked;
+                    } else {
+                        objetLigne[cle] = elementInteractif.value.trim();
+                    }
+                } else {
+                    objetLigne[cle] = (cellule.innerText || cellule.textContent).trim();
+                }
+            }
+            resultats.push(objetLigne);
+        }
+    }
+    return resultats;
+};
+
+
+/* ==========================================
+   FICHIER : obfuscation.js
+   ========================================== */
+
+/* --- /extraction/obfuscation.js --- */
+(function () {
+    if (window.LB_OBF) return;
+
+    window.LB_OBF = {
+        SECRET: "LBP_INTERNAL_STATIC_KEY_2026_ORANGE",
+
+        _xor: function (str, key) {
+            let out = "";
+            for (let i = 0; i < str.length; i++) {
+                out += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+            }
+            return out;
+        },
+
+        encodeObject: function (obj) {
+            const json = JSON.stringify(obj);
+            const x = this._xor(json, this.SECRET);
+            const b64 = btoa(unescape(encodeURIComponent(x)));
+            return {
+                v: 1,
+                alg: "OBF_XOR_B64",
+                ct: b64
+            };
+        },
+
+        decodePayload: function (payload) {
+            if (!payload || payload.alg !== "OBF_XOR_B64" || !payload.ct) {
+                throw new Error("Payload obfuscation invalide");
+            }
+            const x = decodeURIComponent(escape(atob(payload.ct)));
+            const json = this._xor(x, this.SECRET);
+            return JSON.parse(json);
+        }
+    };
+})();
