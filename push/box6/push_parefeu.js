@@ -4,10 +4,21 @@ window.executerParefeu = async function() {
     console.log("⏳ Application des paramètres du Pare-feu (Box 6)...");
 
     /* 1. Lecture de la configuration */
-    let configStr = localStorage.getItem("livebox_migration_config");
-    let configurationActuelle = null;
-    try { configurationActuelle = configStr ? JSON.parse(configStr) : window.configLivebox; } 
-    catch(e) { throw new Error("Configuration JSON invalide (pare-feu)."); }
+    let configurationActuelle = window.configLivebox;
+
+    if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+        try {
+            configurationActuelle = await window.chargerConfiguration();
+            window.configLivebox = configurationActuelle;
+        } catch(e) {
+            throw new Error("Configuration non décodable (pare-feu).");
+        }
+    }
+
+    if (!configurationActuelle) {
+        throw new Error("Configuration absente (pare-feu).");
+    }
+
 
     if (!configurationActuelle || !configurationActuelle.parefeu) {
         console.warn("⚠️ Pas de données Pare-feu trouvées à appliquer.");

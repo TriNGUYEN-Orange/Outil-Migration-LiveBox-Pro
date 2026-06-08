@@ -4,13 +4,21 @@ window.executerAccesDistance = async function() {
     console.log("⏳ Application des paramètres d'Accès à distance (Box 6)...");
 
     /* 1. Lecture de la configuration */
-    let configStr = localStorage.getItem("livebox_migration_config");
-    let configurationActuelle = null;
-    try {
-        configurationActuelle = configStr ? JSON.parse(configStr) : window.configLivebox;
-    } catch (e) {
-        throw new Error("Configuration JSON invalide (accès à distance).");
+    let configurationActuelle = window.configLivebox;
+
+    if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+        try {
+            configurationActuelle = await window.chargerConfiguration();
+            window.configLivebox = configurationActuelle;
+        } catch (e) {
+            throw new Error("Configuration non décodable (accès à distance).");
+        }
     }
+
+    if (!configurationActuelle) {
+        throw new Error("Configuration absente (accès à distance).");
+    }
+
 
     if (!configurationActuelle || !configurationActuelle["accès à distance"]) {
         console.warn("⚠️ Pas de données Accès à distance trouvées à appliquer.");

@@ -3,13 +3,21 @@
 window.executerWifi = async function() {
     console.log("⏳ Application des paramètres Wi-Fi (Box 6)...");
 
-    let configStr = localStorage.getItem("livebox_migration_config");
-    let configurationActuelle = null;
-    try {
-        configurationActuelle = configStr ? JSON.parse(configStr) : window.configLivebox;
-    } catch (e) {
-        throw new Error("Configuration JSON invalide (Wi-Fi).");
+    let configurationActuelle = window.configLivebox;
+
+    if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+        try {
+            configurationActuelle = await window.chargerConfiguration();
+            window.configLivebox = configurationActuelle;
+        } catch (e) {
+            throw new Error("Configuration non décodable (Wi-Fi).");
+        }
     }
+
+    if (!configurationActuelle) {
+        throw new Error("Configuration absente (Wi-Fi).");
+    }
+
 
     if (!configurationActuelle || !configurationActuelle.wifi) {
         console.warn("⚠️ Pas de données Wi-Fi trouvées à appliquer.");

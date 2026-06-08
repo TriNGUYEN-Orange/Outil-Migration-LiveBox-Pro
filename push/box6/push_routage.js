@@ -3,14 +3,21 @@
 window.executerRoutage = async function() {
     console.log("⏳ Application des paramètres de Routage...");
 
-    let configStr = localStorage.getItem("livebox_migration_config");
-    let configurationActuelle = null;
+    let configurationActuelle = window.configLivebox;
 
-    try {
-        configurationActuelle = configStr ? JSON.parse(configStr) : window.configLivebox;
-    } catch(e) {
-        throw new Error("Configuration JSON invalide (routage).");
+    if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+        try {
+            configurationActuelle = await window.chargerConfiguration();
+            window.configLivebox = configurationActuelle;
+        } catch(e) {
+            throw new Error("Configuration non décodable (routage).");
+        }
     }
+
+    if (!configurationActuelle) {
+        throw new Error("Configuration absente (routage).");
+    }
+
 
     if (!configurationActuelle || !configurationActuelle.routage || !configurationActuelle.routage["table de routage"]) {
         console.warn("⚠️ Pas de données de Routage trouvées à appliquer.");
