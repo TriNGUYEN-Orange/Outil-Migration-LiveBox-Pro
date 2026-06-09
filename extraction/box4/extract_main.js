@@ -145,7 +145,6 @@ window.executerExtractionBox4 = async function() {
     await chargerScript(extractionUrl + "/extract_ui.js");
     await chargerScript(extractionUrl + "/extract_utils.js");
 
-    // ✅ Nouveau: obfuscation locale (fallback sans CryptoJS/CDN)
     await chargerScript(extractionUrl + "/obfuscation.js");
 
     await chargerScript(extractionUrl + "/extract_fin.js");
