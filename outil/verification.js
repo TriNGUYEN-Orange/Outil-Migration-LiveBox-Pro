@@ -35,13 +35,26 @@ window.ExtractVerification = {
             /* 2. ANTI-ERREUR HUMAINE (Croisement d'outils et de Livebox)                */
             /* ========================================================================= */
             
-            /* Détection de la box actuelle via le DOM */
-            let estSurBox6 = document.documentElement.className.includes("sah-mode-lb6") || document.getElementById("sah-mhs-mode-lb6") !== null;
+            /* Détection robuste de la box actuelle via le DOM/classes */
+            const htmlClass = (document.documentElement.className || "").toLowerCase();
+
+            // Nouvelle box : LB6/LB7 (on garde l'ancien test + variantes)
+            let estSurBox6 = 
+                htmlClass.includes("sah-mode-lb6") ||
+                htmlClass.includes("sah-mode-lb7") ||
+                htmlClass.includes("mode-lb6") ||
+                htmlClass.includes("mode-lb7") ||
+                htmlClass.includes("lb6") ||
+                htmlClass.includes("lb7") ||
+                document.getElementById("sah-mhs-mode-lb6") !== null ||
+                document.getElementById("sah-mhs-mode-lb7") !== null;
+
+            // Ancienne box (Box 4)
             let estSurBox4 = document.getElementById("header_logoOrange_image") !== null;
 
             let btnFermer = `<button onclick="document.getElementById('lm-verif-overlay').remove();" style="background:#f44336; color:white; padding:10px 20px; border:none; border-radius:6px; font-weight:bold; font-size:15px; width:100%; cursor:pointer; box-sizing:border-box; margin-top:20px;">Fermer</button>`;
 
-            /* Cas A : Outil d'Extraction lancé sur la nouvelle Box 6 */
+            /* Cas A : Outil d'Extraction lancé sur la nouvelle Box 6/7 */
             if (!estModePush && estSurBox6) {
                 this.afficherPopup(
                     "❌ Oups !", 

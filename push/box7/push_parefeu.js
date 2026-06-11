@@ -122,7 +122,7 @@ window.executerParefeu = async function() {
 
         /* 6) Sauvegarde robuste */
         let btnSave = docIframe.querySelector("#submit");
-        if (!btnSave) throw new Error("Bouton sauvegarde introuvable (#submit).");
+        if (!btnSave) throw new Error("Bouton Enregistrer introuvable (#submit).");
 
         if (typeof window.cliquerPur === "function") window.cliquerPur(btnSave);
         else btnSave.click();

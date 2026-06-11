@@ -118,7 +118,6 @@
 
             if (UI && typeof UI.maj === "function") UI.maj(0, TOTAL_ETAPES, "Chargement des utilitaires...");
 
-            // ✅ Pas de CryptoJS loader
             await chargerModule("/push/push_utils.js");
             await chargerModule("/push/push_validation.js");
 
