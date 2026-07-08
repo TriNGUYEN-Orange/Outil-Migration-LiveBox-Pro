@@ -193,7 +193,7 @@ window.executerNatPat = async function () {
 
         selService.value = optNouveau.value;
         try { selService.dispatchEvent(new Event("change", { bubbles: true })); } catch (_) {}
-        await sleep(200);
+        await sleep(1500);
 
         setInputValue(inpServiceAlt, appService);
         await sleep(120);
@@ -202,16 +202,16 @@ window.executerNatPat = async function () {
         await sleep(120);
 
         setInputValue(inpPortExt, portExt);
-        await sleep(120);
+        await sleep(500);
 
         if (N(protoJson) === N("Tous")) {
             selectByTextOrValue(selProto, "TCP/UDP");
         } else {
             selectByTextOrValue(selProto, protoJson);
         }
-        await sleep(120);
+        await sleep(500);
 
         clickLikeUser(btnCreate, iframe.contentWindow || window);
-        await sleep(800);
+        await sleep(2000);
     }
 };
