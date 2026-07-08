@@ -34,14 +34,18 @@
 
     const LISTE_MODULES = [
         { actif: false, nomUI: "Réveil du système", nomEnv: "Wake-Up", fichier: "push_wakeup.js", fonction: "executerWakeUp" },
-        { actif: true,  nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
+        { actif: true, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" },
+        { actif: false,  nomUI: "Pare-feu", nomEnv: "Pare-feu", fichier: "push_parefeu.js", fonction: "executerParefeu" },
         { actif: true, nomUI: "Accès à distance", nomEnv: "Accès à distance", fichier: "push_acces_distance.js", fonction: "executerAccesDistance" },
         { actif: true, nomUI: "Airbox", nomEnv: "Airbox", fichier: "push_airbox.js", fonction: "executerAirbox" },
         { actif: true, nomUI: "VPN Nomade", nomEnv: "VPN Nomade", fichier: "push_vpn_nomade.js", fonction: "executerVpnNomade" },
         { actif: true, nomUI: "VPN Nomade Avancés", nomEnv: "VPN Nomade Avancés", fichier: "push_vpn_avance.js", fonction: "executerVpnNomadeAvance" },
         { actif: true, nomUI: "VPN Site à Site", nomEnv: "VPN Site à Site", fichier: "push_vpn_siteasite.js", fonction: "executerVpnSiteASite" },
         { actif: true, nomUI: "Routage", nomEnv: "Routage", fichier: "push_routage.js", fonction: "executerRoutage" },
-        { actif: true, nomUI: "Réseaux Wi-Fi", nomEnv: "Wi-Fi", fichier: "push_wifi.js", fonction: "executerWifi" }
+        { actif: true, nomUI: "DHCP", nomEnv: "DHCP", fichier: "push_dhcp.js", fonction: "executerDhcpDns" },
+        { actif: true, nomUI: "DMZ", nomEnv: "DMZ", fichier: "push_dmz.js", fonction: "executerDmz" },
+        { actif: true, nomUI: "NatPat", nomEnv: "NatPat", fichier: "push_natpat.js", fonction: "executerNatPat" }
+        //,{ actif: true, nomUI: "DynDNS", nomEnv: "DynDNS", fichier: "push_dyndns.js", fonction: "executerDynDns" }
     ];
 
     const MODULES_A_EXECUTER = LISTE_MODULES.filter(mod => mod.actif);
@@ -71,13 +75,21 @@
     }
 
     const preparerEnvironnement = async (nomModule) => {
+        const modulesReseau = ["DMZ", "NatPat"];
+        if (modulesReseau.includes(nomModule)) {
+            if (typeof window.attendrePause === "function") await window.attendrePause(800);
+            return;
+        }
+
         if (nomModule === "VPN Nomade Avancés" || nomModule === "VPN Site à Site") {
             if (typeof window.attendrePause === "function") await window.attendrePause(1000);
             return;
         }
+
         if (typeof window.retournerAccueil === "function") await window.retournerAccueil();
         if (typeof window.attendrePause === "function") await window.attendrePause(1500);
     };
+
 
     const normaliserRaisonErreur = (err) => {
         const msg = (err && err.message) ? err.message : String(err || "Erreur inconnue");

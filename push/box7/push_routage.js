@@ -198,9 +198,6 @@ window.executerRoutage = async function() {
 
         console.log("✅ Configuration du Routage terminée.");
 
-        if (typeof window.retournerAccueil === "function") {
-            await window.retournerAccueil();
-        }
 
     } catch (e) {
         throw new Error("Échec module Routage: " + (e?.message || "erreur inconnue"));
