@@ -1,4 +1,4 @@
-/* --- /push/box6/push_pdf.js --- */
+/* --- /push/box7/push_pdf.js --- */
 
 window.PushPDF = {
     telecharger: async function(journalModifications, configStr) {

@@ -3,13 +3,21 @@
 window.executerVpnSiteASite = async function() {
     console.log("⏳ Application des paramètres VPN Site à Site...");
 
-    let configStr = localStorage.getItem("livebox_migration_config");
-    let configurationActuelle = null;
-    try {
-        configurationActuelle = configStr ? JSON.parse(configStr) : window.configLivebox;
-    } catch (e) {
-        throw new Error("Configuration JSON invalide (VPN Site à Site).");
+    let configurationActuelle = window.configLivebox;
+
+    if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+        try {
+            configurationActuelle = await window.chargerConfiguration();
+            window.configLivebox = configurationActuelle;
+        } catch (e) {
+            throw new Error("Configuration non décodable (VPN Site à Site).");
+        }
     }
+
+    if (!configurationActuelle) {
+        throw new Error("Configuration absente (VPN Site à Site).");
+    }
+
 
     if (!configurationActuelle || !configurationActuelle.vpn) return;
 

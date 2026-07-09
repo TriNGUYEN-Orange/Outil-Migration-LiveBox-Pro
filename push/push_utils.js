@@ -1,22 +1,118 @@
 /* --- /push/push_utils.js --- */
 
-/* 🚨 FIX ULTIME : On attache explicitement TOUTES les variables et fonctions à l'objet 'window' */
-
 window.CLE_STORAGE = "livebox_migration_config";
-window.configLivebox = null; 
+window.configLivebox = null;
 
-try {
-    window.configLivebox = JSON.parse(localStorage.getItem(window.CLE_STORAGE));
-} catch(e) {
-    console.warn("⚠️ Erreur de lecture du JSON de configuration.");
-}
+window._LB_STATIC_SECRET = "LBP_INTERNAL_STATIC_KEY_2026_ORANGE";
+
+/* =========================================================
+ * Détection payload
+ * ========================================================= */
+window._lbIsEncryptedPayload = function(obj) {
+    return !!(obj && typeof obj === "object" && obj.alg && obj.ct);
+};
+
+/* =========================================================
+ * Déchiffrement / Décodage payload
+ * Support:
+ * - AES-GCM (WebCrypto)
+ * - OBF_XOR_B64 (obfuscation locale)
+ * ========================================================= */
+window._lbDecryptPayload = async function(payload) {
+    // AES-GCM (WebCrypto)
+    if (payload.alg === "AES-GCM") {
+        if (!(window.crypto && window.crypto.subtle)) {
+            throw new Error("WebCrypto indisponible pour déchiffrement AES-GCM.");
+        }
+
+        if (!payload.iv || !payload.ct) {
+            throw new Error("Payload AES-GCM invalide: iv/ct manquant.");
+        }
+
+        const b64ToBytes = (b64) => {
+            const bin = atob(b64);
+            const out = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+            return out;
+        };
+
+        const raw = new TextEncoder().encode(window._LB_STATIC_SECRET);
+        const hash = await crypto.subtle.digest("SHA-256", raw);
+        const key = await crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["decrypt"]);
+
+        const iv = b64ToBytes(payload.iv);
+        const ct = b64ToBytes(payload.ct);
+
+        let plainBuf;
+        try {
+            plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
+        } catch (e) {
+            throw new Error("Échec déchiffrement AES-GCM (clé/iv/ciphertext incompatibles).");
+        }
+
+        const txt = new TextDecoder().decode(plainBuf);
+        if (!txt || !txt.trim()) {
+            throw new Error("Texte AES-GCM déchiffré vide.");
+        }
+
+        try {
+            return JSON.parse(txt);
+        } catch (e) {
+            throw new Error("Texte AES-GCM déchiffré non JSON valide.");
+        }
+    }
+
+    // OBF_XOR_B64 (nouveau mode sans CryptoJS)
+    if (payload.alg === "OBF_XOR_B64") {
+        const xor = (str, key) => {
+            let out = "";
+            for (let i = 0; i < str.length; i++) {
+                out += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+            }
+            return out;
+        };
+
+        try {
+            const x = decodeURIComponent(escape(atob(payload.ct)));
+            const json = xor(x, window._LB_STATIC_SECRET);
+            return JSON.parse(json);
+        } catch (e) {
+            throw new Error("Échec décodage OBF_XOR_B64 (payload/clé incompatibles).");
+        }
+    }
+
+    throw new Error("Algorithme non supporté: " + payload.alg);
+};
+
+/* init config (compatible plain + chiffré/obfusqué) */
+(async function initConfig() {
+    try {
+        const raw = localStorage.getItem(window.CLE_STORAGE);
+        if (!raw) {
+            window.configLivebox = null;
+            return;
+        }
+
+        const parsed = JSON.parse(raw);
+
+        if (window._lbIsEncryptedPayload(parsed)) {
+            window.configLivebox = await window._lbDecryptPayload(parsed);
+        } else {
+            // compat ancien format plain
+            window.configLivebox = parsed;
+        }
+    } catch(e) {
+        console.warn("⚠️ Erreur de lecture/déchiffrement du JSON de configuration.", e);
+        window.configLivebox = null;
+    }
+})();
 
 window.attendrePause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 window.attendreElement = (selecteur, tempsMax = 15000) => {
     return new Promise((resolve) => {
         let element = document.querySelector(selecteur);
-        if (element) return resolve(element); 
+        if (element) return resolve(element);
 
         let timeoutId;
         const intervalle = setInterval(() => {
@@ -26,18 +122,18 @@ window.attendreElement = (selecteur, tempsMax = 15000) => {
                 clearTimeout(timeoutId);
                 resolve(element);
             }
-        }, 200); 
+        }, 200);
 
         timeoutId = setTimeout(() => {
             clearInterval(intervalle);
             console.warn("⚠️ Délai dépassé pour l'élément : " + selecteur);
-            resolve(null); 
+            resolve(null);
         }, tempsMax);
     });
 };
 
 /* ========================================================================= */
-/* ⚡ FONCTIONS GLOBALES GÉNÉRIQUES (RÉUTILISABLES PAR TOUS LES SCRIPTS) ⚡ */
+/* FONCTIONS GLOBALES GÉNÉRIQUES (RÉUTILISABLES PAR TOUS LES SCRIPTS) */
 /* ========================================================================= */
 
 window.attendreElementDansDoc = (docContext, selecteur, tempsMax = 10000) => {
@@ -45,7 +141,7 @@ window.attendreElementDansDoc = (docContext, selecteur, tempsMax = 10000) => {
         if (!docContext) return resolve(null);
         let element = docContext.querySelector(selecteur);
         if (element) return resolve(element);
-        
+
         let timeoutId;
         const intervalle = setInterval(() => {
             try {
@@ -56,8 +152,8 @@ window.attendreElementDansDoc = (docContext, selecteur, tempsMax = 10000) => {
                     resolve(element);
                 }
             } catch(e) {}
-        }, 300); 
-        
+        }, 300);
+
         timeoutId = setTimeout(() => {
             clearInterval(intervalle);
             resolve(null);
@@ -78,7 +174,7 @@ window.attendreFinSauvegarde = async (docContext = document, timeout = 15000) =>
         }, 200);
         setTimeout(() => { clearInterval(intervalle); resolve(); }, timeout);
     });
-    await window.attendrePause(300); 
+    await window.attendrePause(300);
 };
 
 window.attendreDisparitionPopup = async (docContext = document, timeout = 3000) => {
@@ -91,11 +187,11 @@ window.attendreDisparitionPopup = async (docContext = document, timeout = 3000) 
                 for (let popup of popups) {
                     let rect = popup.getBoundingClientRect();
                     let style = window.getComputedStyle(popup);
-                    
+
                     if (rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.opacity !== '0') {
                         if (rect.top > -1000 && rect.left > -1000) {
                             isAnyVisible = true;
-                            break; 
+                            break;
                         }
                     }
                 }
@@ -105,14 +201,14 @@ window.attendreDisparitionPopup = async (docContext = document, timeout = 3000) 
                     resolve();
                 }
             } catch(e) {}
-        }, 50); 
-        
+        }, 50);
+
         setTimeout(() => { clearInterval(intervalle); resolve(); }, timeout);
     });
 };
 
 window.cliquerPur = (element) => {
-    if (element) element.click(); 
+    if (element) element.click();
 };
 
 window.trouverValeurJSON = (obj, cleCible) => {
@@ -169,16 +265,16 @@ window.retournerAccueil = async function() {
     while (tentative < maxTentatives) {
         let btnFermer = document.querySelector("#app_close");
         let fenetreCible = window;
-        
+
         let iframe = document.querySelector("#iframeapp");
         if (!btnFermer && iframe) {
             try {
                 let docIframe = iframe.contentDocument || iframe.contentWindow.document;
                 btnFermer = docIframe.querySelector("#app_close");
-                fenetreCible = iframe.contentWindow; 
+                fenetreCible = iframe.contentWindow;
             } catch(e) {}
         }
-        
+
         if (!btnFermer || window.getComputedStyle(btnFermer).display === "none") {
             console.log("✅ Accueil atteint.");
             return true;
@@ -186,12 +282,12 @@ window.retournerAccueil = async function() {
 
         console.log("👉 Clic ciblé sur le bouton Retour...");
         try { btnFermer.click(); } catch(e) {}
-        
+
         ['mousedown', 'mouseup', 'click'].forEach(type => {
             btnFermer.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: fenetreCible }));
         });
-        
-        await window.attendrePause(2500); 
+
+        await window.attendrePause(2500);
         tentative++;
     }
     console.warn("⚠️ Impossible de retourner à l'accueil.");
@@ -246,7 +342,7 @@ window.obtenirMotDePasseConforme = async function(mdpActuel, nomDuService) {
         let suggestion = mdpActuel ? mdpActuel + "123!" : "LiveboxPro123!";
         let message = "Le mot de passe pour [" + nomDuService + "] n'est pas conforme.\n\nMot de passe actuel : '" + mdpActuel + "'\nExigences : 8 caractères minimum (lettres ET chiffres/spéciaux).\n\nVeuillez modifier :";
         mdpTest = await window.afficherPopupMotDePasse(message, suggestion);
-        if (mdpTest === null) return null; 
+        if (mdpTest === null) return null;
     }
     return mdpTest;
 };
@@ -256,9 +352,15 @@ window.chargerConfiguration = async function() {
     if (dataLocale) {
         try {
             let parsed = JSON.parse(dataLocale);
-            if (parsed) return parsed;
-        } catch(e) {}
+            if (window._lbIsEncryptedPayload(parsed)) {
+                return await window._lbDecryptPayload(parsed);
+            }
+            if (parsed) return parsed; // compat ancien plain
+        } catch(e) {
+            console.warn("⚠️ Erreur lecture/déchiffrement config locale:", e);
+        }
     }
+
     return new Promise((resolve) => {
         let overlay = document.createElement("div");
         overlay.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:2147483647;display:flex;align-items:center;justify-content:center;";
@@ -281,14 +383,27 @@ window.chargerConfiguration = async function() {
         let btnValider = document.createElement("button");
         btnValider.innerText = "Lancer l'injection 🚀";
         btnValider.style.cssText = "padding:10px 20px;background:#ff7900;color:white;border:none;border-radius:5px;font-weight:bold;cursor:pointer;";
-        btnValider.onclick = () => {
+        btnValider.onclick = async () => {
             try {
                 let jsonParse = JSON.parse(zoneTexte.value);
-                localStorage.setItem(window.CLE_STORAGE, JSON.stringify(jsonParse)); 
+
+                // Si JSON chiffré/obfusqué collé, le décoder puis retourner objet
+                if (window._lbIsEncryptedPayload(jsonParse)) {
+                    const plain = await window._lbDecryptPayload(jsonParse);
+                    // on conserve l'original en local
+                    localStorage.setItem(window.CLE_STORAGE, JSON.stringify(jsonParse));
+                    document.body.removeChild(overlay);
+                    resolve(plain);
+                    return;
+                }
+
+                // Compat plain : stocke tel quel
+                localStorage.setItem(window.CLE_STORAGE, JSON.stringify(jsonParse));
                 document.body.removeChild(overlay);
                 resolve(jsonParse);
             } catch (e) {
-                alert("❌ Erreur : Code JSON invalide.");
+                console.error("❌ Import/decrypt error:", e);
+                alert("❌ Erreur : " + (e?.message || "Code JSON invalide ou non déchiffrable."));
             }
         };
         btnDiv.append(btnAnnuler, btnValider);
@@ -296,4 +411,19 @@ window.chargerConfiguration = async function() {
         overlay.appendChild(boite);
         document.body.appendChild(overlay);
     });
+};
+
+window.nettoyerJsonLocal = function() {
+    try {
+        const key = window.CLE_STORAGE || "livebox_migration_config";
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+        localStorage.removeItem("livebox_migration_config");
+        window.configLivebox = null;
+        console.log("🧹 JSON local supprimé. Key:", key);
+        return true;
+    } catch (e) {
+        console.warn("⚠️ Impossible de supprimer le JSON local :", e);
+        return false;
+    }
 };

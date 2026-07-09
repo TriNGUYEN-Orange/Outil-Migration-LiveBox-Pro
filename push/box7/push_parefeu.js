@@ -3,80 +3,170 @@
 window.executerParefeu = async function() {
     console.log("⏳ Application des paramètres du Pare-feu...");
 
-    /* Récupération des données globales de migration */
-    let configJSON = localStorage.getItem("livebox_migration_config");
-    if (!configJSON) return;
-    let configLivebox = JSON.parse(configJSON);
+    /* 1) Lecture de configuration (priorité: config déchiffrée globale) */
+    let configurationActuelle = window.configLivebox;
 
-    if (configLivebox && configLivebox.parefeu) {
-        
-        let btnAvance = await window.attendreElement("#sah_footer .icon-advanced", 10000);
-        
-        if (btnAvance) {
-            window.cliquerBouton("#sah_footer .icon-advanced");
-            await window.attendrePause(800); 
-            
-            let btnPareFeu = await window.attendreElement("#networkFirewall", 10000);
-            if (btnPareFeu) {
-                btnPareFeu.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                window.cliquerBouton("#networkFirewall");
-                
-                let iframe = await window.attendreElement("#iframeapp", 10000);
-                if (iframe) {
-                    let docIframe = iframe.contentDocument || iframe.contentWindow.document;
-                    
-                    /* IDÉE : Attendre que le conteneur des boutons radio (div#security) soit complètement chargé[cite: 19] */
-                    console.log("⏳ Attente du chargement complet du bloc Pare-feu...");
-                    let conteneurSecurity = await window.attendreElementDansDoc(docIframe, "div#security", 10000);
-                    
-                    if (conteneurSecurity) {
-                        /* Pause de 0.5s pour s'assurer que Ractive.js est prêt à intercepter le clic[cite: 19] */
-                        await window.attendrePause(500); 
-                        
-                        let niveauVoulu = (configLivebox.parefeu["niveau de protection"] || "moyen").toLowerCase();
-                        let idCible = "#security_Medium"; 
-                        
-                        if (niveauVoulu.includes("faible")) idCible = "#security_Low";
-                        else if (niveauVoulu.includes("élevé") || niveauVoulu.includes("eleve")) idCible = "#security_High";
-                        else if (niveauVoulu.includes("personnalisé") || niveauVoulu.includes("personnalise")) idCible = "#security_Custom";
-                        else if (niveauVoulu.includes("intermédiaire") || niveauVoulu.includes("intermediaire")) idCible = "#security_IntermediateP";
-                        
-                        let radioCible = docIframe.querySelector(idCible);
-                        
-                        if (radioCible && !radioCible.checked) {
-                            console.log("👉 Application du niveau de pare-feu : " + niveauVoulu);
-                            
-                            /* 🚨 ASTUCE : Cliquer sur la balise LABEL au lieu du bouton radio lui-même[cite: 19] */
-                            let nomId = idCible.replace('#', '');
-                            let labelCible = docIframe.querySelector('label[for="' + nomId + '"]');
-                            
-                            if (labelCible) {
-                                window.cliquerPur(labelCible);
-                            } else {
-                                window.cliquerPur(radioCible); /* Solution de repli[cite: 19] */
-                            }
-                            
-                            await window.attendrePause(800); /* Attendre que l'interface enregistre le clic[cite: 19] */
-                            
-                            let btnSave = docIframe.querySelector("#submit");
-                            if (btnSave) {
-                                window.cliquerPur(btnSave);
-                                await window.attendreFinSauvegarde(docIframe);
-                                
-                                /* Enregistrement de l'action pour le Bilan UI (Optionnel) */
-                                if (window.PushUI && typeof window.PushUI.enregistrerModification === "function") {
-                                    window.PushUI.enregistrerModification("Pare-feu", "Niveau de protection", "Ancien Niveau", niveauVoulu);
-                                }
-                            }
-                        } else {
-                            console.log("✅ Le niveau de pare-feu est déjà sur : " + niveauVoulu);
+    // Fallback soft si config absente (sans casser ton code actuel)
+    if (!configurationActuelle && typeof window.chargerConfiguration === "function") {
+        try {
+            configurationActuelle = await window.chargerConfiguration();
+            window.configLivebox = configurationActuelle;
+            console.log("ℹ️ Fallback: configuration rechargée via chargerConfiguration().");
+        } catch (e) {
+            console.warn("⚠️ Fallback chargerConfiguration() a échoué:", e);
+        }
+    }
+
+    if (!configurationActuelle) {
+        throw new Error("Configuration non chargée (window.configLivebox vide).");
+    }
+
+    if (!configurationActuelle.parefeu || typeof configurationActuelle.parefeu !== "object") {
+        throw new Error("Section 'parefeu' absente de la configuration déchiffrée.");
+    }
+
+    /* 2) Navigation vers paramètres avancés */
+    let btnAvance = await window.attendreElement("#sah_footer .icon-advanced", 6000);
+    if (!btnAvance) throw new Error("Timeout: bouton Paramètres avancés introuvable (#sah_footer .icon-advanced).");
+
+    let clicAvanceOk = window.cliquerBouton("#sah_footer .icon-advanced");
+    if (!clicAvanceOk) throw new Error("Impossible de cliquer sur Paramètres avancés (#sah_footer .icon-advanced).");
+
+    await window.attendrePause(1500);
+
+    /* 3) Tuile Pare-feu */
+    let tuilePareFeu = await window.attendreElement("#networkFirewall", 6000);
+    if (!tuilePareFeu) throw new Error("Timeout: tuile Pare-feu introuvable (#networkFirewall).");
+
+    tuilePareFeu.scrollIntoView({ behavior: "smooth", block: "center" });
+    await window.attendrePause(500);
+
+    console.log("👉 Clic sur la tuile Pare-feu...");
+    let widget = tuilePareFeu.querySelector(".widget");
+    let clicTuileOk = window.cliquerBouton(widget ? widget : tuilePareFeu);
+    if (!clicTuileOk) throw new Error("Impossible de cliquer sur la tuile Pare-feu.");
+
+    /* 4) Attente iframe + chargement complet */
+    let iframe = await window.attendreElement("#iframeapp", 15000);
+    if (!iframe) throw new Error("Timeout: iframe Pare-feu introuvable (#iframeapp).");
+
+    console.log("⏳ Attente du chargement complet de l'iframe...");
+    await new Promise((resolve, reject) => {
+        let done = false;
+        let intervalle = setInterval(() => {
+            try {
+                let docIframe = iframe.contentDocument || iframe.contentWindow.document;
+                if (docIframe && docIframe.readyState === "complete") {
+                    let loading = docIframe.querySelector("body > div.loading_screen");
+                    if (!loading || window.getComputedStyle(loading).display === "none") {
+                        if (!done) {
+                            done = true;
+                            clearInterval(intervalle);
+                            resolve();
                         }
-                    } else {
-                        console.warn("⚠️ Le conteneur div#security n'est pas apparu.");
                     }
                 }
+            } catch (e) {}
+        }, 500);
+
+        setTimeout(() => {
+            if (!done) {
+                clearInterval(intervalle);
+                reject(new Error("Timeout: chargement iframe Pare-feu trop long."));
             }
+        }, 15000);
+    });
+
+    await window.attendrePause(500);
+
+    let docIframe = iframe.contentDocument || iframe.contentWindow.document;
+    if (!docIframe) throw new Error("Document iframe Pare-feu inaccessible.");
+
+    /* 5) Bloc sécurité + choix du niveau */
+    console.log("⏳ Attente du chargement complet du bloc Pare-feu...");
+    let conteneurSecurity = await window.attendreElementDansDoc(docIframe, "div#security", 10000);
+    if (!conteneurSecurity) throw new Error("Timeout: conteneur sécurité introuvable (div#security).");
+
+    await window.attendrePause(500);
+
+    let niveauVoulu = (configurationActuelle.parefeu["niveau de protection"] || "moyen").toLowerCase();
+    let idCible = "#security_Medium";
+
+    if (niveauVoulu.includes("faible")) idCible = "#security_Low";
+    else if (niveauVoulu.includes("élevé") || niveauVoulu.includes("eleve")) idCible = "#security_High";
+    else if (niveauVoulu.includes("personnalisé") || niveauVoulu.includes("personnalise")) idCible = "#security_Custom";
+    else if (niveauVoulu.includes("intermédiaire") || niveauVoulu.includes("intermediaire")) idCible = "#security_IntermediateP";
+
+    let radioCible = docIframe.querySelector(idCible);
+    if (!radioCible) throw new Error(`Option Pare-feu introuvable (${idCible}).`);
+
+    if (!radioCible.checked) {
+        console.log("👉 Application du niveau de pare-feu : " + niveauVoulu);
+
+        let nomId = idCible.replace("#", "");
+        let labelCible = docIframe.querySelector('label[for="' + nomId + '"]');
+
+        if (labelCible) {
+            if (typeof window.cliquerPur === "function") window.cliquerPur(labelCible);
+            else labelCible.click();
+        } else {
+            if (typeof window.cliquerPur === "function") window.cliquerPur(radioCible);
+            else radioCible.click();
         }
+
+        await window.attendrePause(800);
+
+        if (!radioCible.checked) {
+            throw new Error(`Échec sélection niveau Pare-feu (${idCible}).`);
+        }
+
+        /* 6) Sauvegarde robuste */
+        let btnSave = docIframe.querySelector("#submit");
+        if (!btnSave) throw new Error("Bouton Enregistrer introuvable (#submit).");
+
+        if (typeof window.cliquerPur === "function") window.cliquerPur(btnSave);
+        else btnSave.click();
+
+        console.log("⏳ Sauvegarde en cours...");
+        await new Promise((resolve, reject) => {
+            let done = false;
+            let intv = setInterval(() => {
+                try {
+                    let currentDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (currentDoc) {
+                        let loading = currentDoc.querySelector("body > div.loading_screen");
+                        if (!loading || window.getComputedStyle(loading).display === "none") {
+                            if (!done) {
+                                done = true;
+                                clearInterval(intv);
+                                resolve();
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }, 1000);
+
+            setTimeout(() => {
+                if (!done) {
+                    clearInterval(intv);
+                    reject(new Error("Timeout: sauvegarde Pare-feu non confirmée."));
+                }
+            }, 30000);
+        });
+
+        await window.attendrePause(1000);
+
+        if (window.PushUI && typeof window.PushUI.enregistrerModification === "function") {
+            window.PushUI.enregistrerModification("Pare-feu", "Niveau de protection", "Ancien Niveau", niveauVoulu);
+        }
+
+    } else {
+        console.log("✅ Le niveau de pare-feu est déjà sur : " + niveauVoulu);
+    }
+
+    console.log("🔄 Retour à l'accueil...");
+    if (typeof window.retournerAccueil === "function") {
         await window.retournerAccueil();
+        await window.attendrePause(2000);
     }
 };

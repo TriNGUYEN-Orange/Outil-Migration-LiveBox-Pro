@@ -107,13 +107,11 @@ window.executerExtractionBox4 = async function() {
 (async function() {
     let baseUrlBox4 = "";
     
-    /* Utilisation prioritaire de currentScript pour une precision absolue */
     if (document.currentScript && document.currentScript.src) {
         baseUrlBox4 = document.currentScript.src.substring(0, document.currentScript.src.lastIndexOf('/'));
     } else {
         let scripts = document.getElementsByTagName("script");
         for (let s of scripts) {
-            /* Filtre strict sur le dossier box4 pour ignorer les fantomes */
             if (s.src && s.src.includes("box4/extract_main.js")) {
                 baseUrlBox4 = s.src.substring(0, s.src.lastIndexOf('/'));
                 break;
@@ -146,6 +144,9 @@ window.executerExtractionBox4 = async function() {
 
     await chargerScript(extractionUrl + "/extract_ui.js");
     await chargerScript(extractionUrl + "/extract_utils.js");
+
+    await chargerScript(extractionUrl + "/obfuscation.js");
+
     await chargerScript(extractionUrl + "/extract_fin.js");
     await chargerScript(rootUrl + "/outil/verification.js"); 
 
