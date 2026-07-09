@@ -1,7 +1,7 @@
 # GUIDE DE MAINTENANCE ET DE MISE À JOUR
 
-**!!! Attention !!** : le code deployé est dans la branche **test**, pas main. 
-Il faut donc changer le code dans **test** pour la mise à jour, maintenane,...
+**!!! Attention !!** : le code deployé est dans la branche **main**. 
+Il faut donc changer le code dans **main** pour la mise à jour, maintenane,...
 
 Ce document est destiné aux développeurs prenant le relais sur le projet. 
 Lorsqu'Orange met à jour le firmware ou l'interface (IHM) de la Livebox, les sélecteurs (selectors) HTML ou la structure DOM peuvent changer. Cela provoque des erreurs `Introuvable` ou empêche les clics automatiques lors de l'extraction.
