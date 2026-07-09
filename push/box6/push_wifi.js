@@ -93,11 +93,11 @@ window.executerWifi = async function() {
         return true;
     };
 
-    // ✅ NOUVEAU: save robuste en relisant le DOM à chaque tentative
+    // Save robuste + confirmation popup (#popup_confirm_submit)
     const cliquerSaveRobuste = async (iframeNode, contexte = "Wi-Fi") => {
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         const SAVE_SEL = "#save, #submit, input#save, input#submit, button#save, button#submit, button[type='submit'], input[type='submit'], .btn-save, .button-save";
-        const CONFIRM_SEL = "#popup_confirm_submit, #popup_confirm, .btn-confirm, .button-confirm";
+        const CONFIRM_SEL = "#popup_confirm_submit";
 
         const getDoc = () => (iframeNode.contentDocument || iframeNode.contentWindow?.document || null);
 
@@ -150,30 +150,20 @@ window.executerWifi = async function() {
 
             console.log(`👉 [${contexte}] tentative click save ${tentative}/3`, btnSave);
             clickFort(btnSave);
-            await sleep(1200);
 
-            // Confirm popup éventuel
-            doc = getDoc();
-            let btnConfirm = doc?.querySelector(CONFIRM_SEL);
-            if (!btnConfirm) {
-                btnConfirm = await attendreElementIframeDynamique(iframeNode, CONFIRM_SEL, 2500);
-            }
+            // Attendre popup de confirmation puis confirmer
+            let btnConfirm = await attendreElementIframeDynamique(iframeNode, CONFIRM_SEL, 8000);
             if (btnConfirm) {
+                console.log(`👉 [${contexte}] popup confirmation détecté, clic sur #popup_confirm_submit`);
                 clickFort(btnConfirm);
-                await sleep(700);
-                console.log(`✅ [${contexte}] popup confirm cliqué`);
+            } else {
+                console.warn(`⚠️ [${contexte}] popup confirmation non détecté (timeout).`);
             }
 
-            // Si bouton devient disabled ou disparaît, on considère le clic pris
-            doc = getDoc();
-            const btnAfter = doc?.querySelector(SAVE_SEL);
-            if (!btnAfter || btnAfter.disabled) {
-                console.log(`✅ [${contexte}] clic save pris en compte (état bouton changé)`);
-                return;
-            }
+            // Attendre fin de sauvegarde réelle (longue)
+            await attendreFinSauvegarde(iframeNode);
 
-            // Sinon on retente
-            await sleep(900);
+            return;
         }
 
         throw new Error(`Bouton save non cliquable après 3 tentatives (${contexte}).`);
@@ -275,6 +265,7 @@ window.executerWifi = async function() {
 
                     let mBrut = configWifi.wifi2_4.mode.toLowerCase();
                     let valMode = "bgn";
+
                     if (mBrut.includes("ax")) valMode = "ax";
                     else if (mBrut.includes("b") && mBrut.includes("g") && mBrut.includes("n")) valMode = "bgn";
                     else if (mBrut.includes("g") && mBrut.includes("n")) valMode = "gn";
@@ -302,89 +293,7 @@ window.executerWifi = async function() {
             await attendreFinSauvegarde(iframe);
             await window.attendrePause(3000);
 
-            console.log("⏳ Transition vers la configuration 5 GHz...");
-            await window.attendrePause(2000);
-
-            let configWifiGbl = configurationActuelle.wifi;
-            if (configWifiGbl && configWifiGbl.wifi5) {
-                let etatBrut5 = configWifiGbl.wifi5["état"] !== undefined ? configWifiGbl.wifi5["état"] : configWifiGbl.wifi5["etat"];
-
-                if (etatBrut5 !== undefined) {
-                    let btnWifi5 = await attendreElementIframeDynamique(iframe, "button#wifi_accesspoint5", 15000);
-                    if (!btnWifi5) throw new Error("Bouton Wi-Fi 5G perdu (DOM réinitialisé).");
-
-                    let etatStr = String(etatBrut5).toLowerCase();
-                    let etatVouluWifi5 = (etatStr === "activé" || etatStr === "true" || etatStr === "active" || etatStr === "1" || etatStr === "on");
-                    let estActiveActuellement = btnWifi5.getAttribute("aria-pressed") === "true";
-
-                    if (estActiveActuellement !== etatVouluWifi5) {
-                        console.log(`👉 Basculement de l'état du Wi-Fi 5 : ${estActiveActuellement ? "ON" : "OFF"} ➔ ${etatVouluWifi5 ? "ON" : "OFF"}`);
-                        btnWifi5.scrollIntoView({ behavior: "smooth", block: "center" });
-                        await window.attendrePause(500);
-
-                        if (typeof window.cliquerPur === "function") window.cliquerPur(btnWifi5);
-                        else btnWifi5.click();
-
-                        await attendreFinSauvegarde(iframe);
-                        console.log("✅ État du Wi-Fi 5 mis à jour !");
-                    }
-                }
-
-                let lien5 = await attendreElementIframeDynamique(iframe, "#wifi_accesspoint5_link_txt, #wifi_accesspoint5_link", 10000);
-                if (!lien5) throw new Error("Lien de configuration Wi-Fi 5G introuvable.");
-
-                lien5.click();
-                let inputSsid5 = await attendreElementIframeDynamique(iframe, "#wifi_private_ssid", 10000);
-                if (!inputSsid5) throw new Error("Champ SSID 5G introuvable.");
-
-                docIframe = iframe.contentDocument || iframe.contentWindow.document;
-                if (!docIframe) throw new Error("Document iframe inaccessible pendant config 5G.");
-                let configWifi = configurationActuelle.wifi;
-
-                if (configWifi.wifi5.ssid) ecrireChampRobuste(docIframe, "#wifi_private_ssid", configWifi.wifi5.ssid);
-
-                if (typeof configWifi.wifi5["diffusion_ssid"] !== "undefined") {
-                    let cbDiffusion5 = docIframe.querySelector("#wifi_private_broadcastssid_id_1");
-                    if (!cbDiffusion5) throw new Error("Champ diffusion SSID 5G introuvable.");
-                    if (cbDiffusion5.checked !== configWifi.wifi5["diffusion_ssid"]) cbDiffusion5.click();
-                }
-
-                if (configWifi.wifi5["mdp"]) {
-                    let mdpValide5 = typeof window.obtenirMotDePasseConforme === "function"
-                        ? await window.obtenirMotDePasseConforme(configWifi.wifi5["mdp"], "Wi-Fi 5 GHz")
-                        : configWifi.wifi5["mdp"];
-                    if (mdpValide5) ecrireChampRobuste(docIframe, "#wifi_private_securitykey", mdpValide5);
-                }
-
-                let cbOled5 = docIframe.querySelector("#wifi_private_oledSecurityKey_1");
-                if (cbOled5 && !cbOled5.checked) cbOled5.click();
-
-                let selectDiff5 = docIframe.querySelector("#wifi_private_different_ssid");
-                if (selectDiff5 && typeof configWifi["differencier_reseaux"] !== "undefined") {
-                    selectDiff5.value = "0";
-                    selectDiff5.dispatchEvent(new Event("change", { bubbles: true }));
-                }
-
-                let lienAvance5 = docIframe.querySelector("#advanced_parameters_link");
-                if (lienAvance5) {
-                    if (typeof window.cliquerPur === "function") window.cliquerPur(lienAvance5);
-                    else lienAvance5.click();
-                    await window.attendrePause(500);
-
-                    if (typeof configWifi.wifi5["filtrage_mac"] !== "undefined") {
-                        let selectMac5 = docIframe.querySelector("#wifi_private_macfiltering_enable");
-                        if (!selectMac5) throw new Error("Select filtrage MAC 5G introuvable.");
-                        selectMac5.value = configWifi.wifi5["filtrage_mac"] ? "1" : "0";
-                        selectMac5.dispatchEvent(new Event("change", { bubbles: true }));
-                    }
-                }
-
-                await cliquerSaveRobuste(iframe, "5G");
-
-                console.log("⏳ Enregistrement 5 GHz...");
-                await attendreFinSauvegarde(iframe);
-                await window.attendrePause(3000);
-            }
+            // WIFI 5G SUPPRIMÉ (comme demandé)
 
             succesPasse = true;
 
