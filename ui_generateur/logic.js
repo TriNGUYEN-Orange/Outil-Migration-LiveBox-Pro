@@ -60,7 +60,6 @@ function afficherResultat() {
     htmlEtapes += '</div>';
     zoneContent.innerHTML = contenuFinalHTML + htmlEtapes;
 
-    /* FIX FIREFOX : Rendre les boutons glissables */
     setTimeout(() => {
         zoneContent.querySelectorAll("button[onclick^='javascript:'], a[href^='javascript:']").forEach(el => {
             el.setAttribute("draggable", "true");
