@@ -28,7 +28,7 @@
 
     // const BASE_URL = detectBaseUrl();
     //const BASE_URL = "http://127.0.0.1:5500/";
-    const BASE_URL = detectBaseUrl() || "https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro";
+    const BASE_URL = detectBaseUrl() || "https://jeune-albert.github.io/Outil-Migration-LiveBox-Pro";
 
 
 
