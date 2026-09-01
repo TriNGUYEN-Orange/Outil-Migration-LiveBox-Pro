@@ -1,4 +1,4 @@
-const LOCAL_BASE_URL = "https://tringuyen-orange.github.io/Outil-Migration-LiveBox-Pro"; 
+const LOCAL_BASE_URL = "https://jeune-albert.github.io/Outil-Migration-LiveBox-Pro"; 
 //const LOCAL_BASE_URL = "http://127.0.0.1:5500"
 
 /* --- GENERATEURS DE BOOKMARKLETS (Architecture Routeur) --- */
